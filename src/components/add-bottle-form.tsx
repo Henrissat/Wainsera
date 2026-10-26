@@ -71,7 +71,7 @@ interface FormErrors {
 
 export function AddBottleForm({
   locations,
-  regions,
+  regions: regionsProp,
   grapes,
   merchants = [],
   bottleId,
@@ -79,6 +79,7 @@ export function AddBottleForm({
 }: AddBottleFormProps) {
   const router = useRouter();
   const isEdit = Boolean(bottleId);
+  const [regions, setRegions] = useState(regionsProp);
   const [producer, setProducer] = useState(initial?.producer ?? "");
   const [cuvee, setCuvee] = useState(initial?.cuvee ?? "");
   const [isNV, setIsNV] = useState(
@@ -92,6 +93,11 @@ export function AddBottleForm({
   const [regionId, setRegionId] = useState(initial?.regionId ?? "");
   const [appellationId, setAppellationId] = useState(
     initial?.appellationId ?? "",
+  );
+  const [newAppellationName, setNewAppellationName] = useState("");
+  const [addingAppellation, setAddingAppellation] = useState(false);
+  const [appellationError, setAppellationError] = useState<string | null>(
+    null,
   );
   const [grapeIds, setGrapeIds] = useState<string[]>(initial?.grapeIds ?? []);
   const [alcoholAbv, setAlcoholAbv] = useState(
@@ -420,6 +426,73 @@ export function AddBottleForm({
                 </option>
               ))}
             </select>
+            {regionId && (
+              <div className="mt-2 flex flex-col gap-1.5 sm:flex-row sm:items-center">
+                <input
+                  type="text"
+                  value={newAppellationName}
+                  onChange={(e) => setNewAppellationName(e.target.value)}
+                  placeholder="Manquante ? Écris le nom…"
+                  className={cn(field, "mt-0 sm:flex-1")}
+                />
+                <button
+                  type="button"
+                  disabled={
+                    addingAppellation || !newAppellationName.trim()
+                  }
+                  onClick={async () => {
+                    setAppellationError(null);
+                    setAddingAppellation(true);
+                    try {
+                      const res = await fetch("/api/catalog/appellations", {
+                        method: "POST",
+                        headers: { "Content-Type": "application/json" },
+                        body: JSON.stringify({
+                          regionId,
+                          name: newAppellationName.trim(),
+                        }),
+                      });
+                      const data = await res.json().catch(() => ({}));
+                      if (!res.ok) {
+                        throw new Error(data.error || "Erreur");
+                      }
+                      setRegions((prev) =>
+                        prev.map((r) => {
+                          if (r.id !== regionId) return r;
+                          if (r.appellations.some((a) => a.id === data.id)) {
+                            return r;
+                          }
+                          return {
+                            ...r,
+                            appellations: [
+                              ...r.appellations,
+                              { id: data.id, name: data.name },
+                            ].sort((a, b) => a.name.localeCompare(b.name, "fr")),
+                          };
+                        }),
+                      );
+                      setAppellationId(data.id);
+                      setNewAppellationName("");
+                    } catch (err) {
+                      setAppellationError(
+                        err instanceof Error ? err.message : "Erreur",
+                      );
+                    } finally {
+                      setAddingAppellation(false);
+                    }
+                  }}
+                  className="inline-flex shrink-0 items-center justify-center gap-1.5 rounded-md border border-border bg-card px-3 py-2 text-sm font-medium hover:bg-muted/40 disabled:opacity-50"
+                >
+                  {addingAppellation && (
+                    <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                  )}
+                  Ajouter
+                </button>
+              </div>
+            )}
+            {appellationError && (
+              <p className="mt-1 text-xs text-destructive">{appellationError}</p>
+            )}
           </div>
         </div>
 
