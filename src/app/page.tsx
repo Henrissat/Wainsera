@@ -13,6 +13,8 @@ import { InventoryFilters } from "@/components/inventory-filters";
 import { Plus } from "lucide-react";
 import type { WineType } from "@prisma/client";
 import { syncDrinkAlerts } from "@/lib/sync-alerts";
+import { auth } from "@/auth";
+import { redirect } from "next/navigation";
 
 export const dynamic = "force-dynamic";
 
@@ -23,6 +25,10 @@ export default async function HomePage({
 }: {
   searchParams: SearchParams;
 }) {
+  const session = await auth();
+  if (!session?.user?.id) redirect("/login");
+  const userId = session.user.id;
+
   const sp = await searchParams;
   const q = String(sp.q ?? "").trim().toLowerCase();
   const type = String(sp.type ?? "") as WineType | "";
@@ -42,11 +48,12 @@ export default async function HomePage({
   let totalQty = 0;
 
   try {
-    await syncDrinkAlerts(currentYear);
+    await syncDrinkAlerts(userId, currentYear);
 
     const [rawBottles, regions, grapes, locations] = await Promise.all([
       prisma.bottle.findMany({
         where: {
+          userId,
           status: "EN_STOCK",
           ...(location ? { locationId: location } : {}),
           wine: {
@@ -77,6 +84,7 @@ export default async function HomePage({
         select: { id: true, name: true },
       }),
       prisma.location.findMany({
+        where: { userId },
         orderBy: { name: "asc" },
         select: { id: true, name: true },
       }),

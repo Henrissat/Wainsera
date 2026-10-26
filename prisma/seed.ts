@@ -1,6 +1,20 @@
+import "dotenv/config";
 import { PrismaClient } from "@prisma/client";
+import { hash } from "bcryptjs";
 
 const prisma = new PrismaClient();
+
+const DEFAULT_MERCHANTS = [
+  "Cave / caviste",
+  "Grande distribution",
+  "Foire aux vins",
+  "Producteur / domaine",
+  "Internet",
+  "Enchères",
+  "Cadeau",
+  "Restaurant",
+  "Autre",
+];
 
 const GRAPES = [
   "Merlot",
@@ -185,28 +199,31 @@ async function main() {
     }
   }
 
-  const MERCHANTS = [
-    "Cave / caviste",
-    "Grande distribution",
-    "Foire aux vins",
-    "Producteur / domaine",
-    "Internet",
-    "Enchères",
-    "Cadeau",
-    "Restaurant",
-    "Autre",
-  ];
-
-  for (const name of MERCHANTS) {
-    await prisma.merchant.upsert({
-      where: { name },
-      create: { name },
-      update: {},
+  const email = (process.env.AUTH_ADMIN_EMAIL ?? "").trim().toLowerCase();
+  const password = process.env.AUTH_ADMIN_PASSWORD ?? "";
+  if (email && password) {
+    const passwordHash = await hash(password, 12);
+    const admin = await prisma.user.upsert({
+      where: { email },
+      create: { email, name: "Admin", passwordHash },
+      update: { passwordHash },
     });
+    for (const name of DEFAULT_MERCHANTS) {
+      await prisma.merchant.upsert({
+        where: { userId_name: { userId: admin.id, name } },
+        create: { name, userId: admin.id },
+        update: {},
+      });
+    }
+    console.log(`Admin seed : ${admin.email}`);
+  } else {
+    console.warn(
+      "AUTH_ADMIN_EMAIL / AUTH_ADMIN_PASSWORD absents — admin non créé.",
+    );
   }
 
   console.log(
-    `Seed OK : ${GRAPES.length} cépages, ${Object.keys(REGIONS).length} régions, ${MERCHANTS.length} marchands.`,
+    `Seed OK : ${GRAPES.length} cépages, ${Object.keys(REGIONS).length} régions.`,
   );
 }
 

@@ -1,15 +1,20 @@
 import Link from "next/link";
-import { notFound } from "next/navigation";
+import { notFound, redirect } from "next/navigation";
 import { prisma } from "@/lib/prisma";
 import { AddBottleForm } from "@/components/add-bottle-form";
 import { ErrorState } from "@/components/empty-state";
 import { ArrowLeft } from "lucide-react";
+import { auth } from "@/auth";
 
 export const dynamic = "force-dynamic";
 
 type Props = { params: Promise<{ id: string }> };
 
 export default async function EditBottlePage({ params }: Props) {
+  const session = await auth();
+  if (!session?.user?.id) redirect("/login");
+  const userId = session.user.id;
+
   const { id } = await params;
 
   let bottle: Awaited<ReturnType<typeof load>> = null;
@@ -25,8 +30,9 @@ export default async function EditBottlePage({ params }: Props) {
 
   try {
     [bottle, locations, regions, grapes, merchants] = await Promise.all([
-      load(id),
+      load(id, userId),
       prisma.location.findMany({
+        where: { userId },
         orderBy: [{ type: "asc" }, { name: "asc" }],
         select: { id: true, name: true, type: true },
       }),
@@ -44,6 +50,7 @@ export default async function EditBottlePage({ params }: Props) {
         select: { id: true, name: true },
       }),
       prisma.merchant.findMany({
+        where: { userId },
         orderBy: { name: "asc" },
         select: { id: true, name: true },
       }),
@@ -127,9 +134,9 @@ export default async function EditBottlePage({ params }: Props) {
   );
 }
 
-async function load(id: string) {
-  return prisma.bottle.findUnique({
-    where: { id },
+async function load(id: string, userId: string) {
+  return prisma.bottle.findFirst({
+    where: { id, userId },
     include: {
       wine: { include: { grapes: true } },
     },

@@ -3,10 +3,16 @@ import { getLocationTypeLabel } from "@/lib/types";
 import { LocationForm } from "@/components/location-form";
 import { ErrorState } from "@/components/empty-state";
 import { MapPin, Wine } from "lucide-react";
+import { auth } from "@/auth";
+import { redirect } from "next/navigation";
 
 export const dynamic = "force-dynamic";
 
 export default async function EmplacementsPage() {
+  const session = await auth();
+  if (!session?.user?.id) redirect("/login");
+  const userId = session.user.id;
+
   let locations: {
     id: string;
     name: string;
@@ -18,6 +24,7 @@ export default async function EmplacementsPage() {
 
   try {
     locations = await prisma.location.findMany({
+      where: { userId },
       orderBy: [{ type: "asc" }, { name: "asc" }],
       include: {
         _count: { select: { bottles: true } },

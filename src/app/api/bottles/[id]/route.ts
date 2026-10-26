@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { BottleStatus, WineType } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 import { parsePurchaseFields, resolveMerchantId } from "@/lib/purchase";
+import { requireUserId, unauthorized, notFound } from "@/lib/auth-utils";
 
 type Params = { params: Promise<{ id: string }> };
 
@@ -24,19 +25,17 @@ function parseRating(value: unknown): number | null {
 }
 
 export async function PATCH(request: Request, { params }: Params) {
+  const userId = await requireUserId();
+  if (!userId) return unauthorized();
+
   const { id } = await params;
   const body = await request.json();
 
-  const existing = await prisma.bottle.findUnique({
-    where: { id },
+  const existing = await prisma.bottle.findFirst({
+    where: { id, userId },
     include: { wine: true },
   });
-  if (!existing) {
-    return NextResponse.json(
-      { error: "Bouteille introuvable" },
-      { status: 404 },
-    );
-  }
+  if (!existing) return notFound();
 
   // --- Mise à jour complète de la fiche ---
   if (body.mode === "update") {
@@ -83,10 +82,16 @@ export async function PATCH(request: Request, { params }: Params) {
       );
     }
 
+    const location = await prisma.location.findFirst({
+      where: { id: locationId, userId },
+    });
+    if (!location) return notFound();
+
     await prisma.wineGrape.deleteMany({ where: { wineId: existing.wineId } });
 
     const purchase = parsePurchaseFields(body);
     const merchantId = await resolveMerchantId(
+      userId,
       body.merchantId,
       body.newMerchant,
     );
@@ -208,14 +213,13 @@ export async function PATCH(request: Request, { params }: Params) {
 }
 
 export async function DELETE(_request: Request, { params }: Params) {
+  const userId = await requireUserId();
+  if (!userId) return unauthorized();
+
   const { id } = await params;
-  try {
-    await prisma.bottle.delete({ where: { id } });
-    return NextResponse.json({ ok: true });
-  } catch {
-    return NextResponse.json(
-      { error: "Bouteille introuvable" },
-      { status: 404 },
-    );
-  }
+  const existing = await prisma.bottle.findFirst({ where: { id, userId } });
+  if (!existing) return notFound();
+
+  await prisma.bottle.delete({ where: { id } });
+  return NextResponse.json({ ok: true });
 }

@@ -2,8 +2,9 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
+import { signOut } from "next-auth/react";
 import { cn } from "@/lib/utils";
-import { Wine, Home, CalendarClock, MapPin, Plus } from "lucide-react";
+import { Wine, Home, CalendarClock, MapPin, Plus, LogOut } from "lucide-react";
 
 const navItems = [
   { href: "/", label: "Inventaire", icon: Home },
@@ -11,14 +12,23 @@ const navItems = [
   { href: "/emplacements", label: "Emplacements", icon: MapPin },
 ];
 
-export function Navbar({ unreadAlerts = 0 }: { unreadAlerts?: number }) {
+export function Navbar({
+  unreadAlerts = 0,
+  userEmail,
+  userName,
+}: {
+  unreadAlerts?: number;
+  userEmail?: string | null;
+  userName?: string | null;
+}) {
   const pathname = usePathname();
+  const label = userName || userEmail || "";
 
   return (
     <>
       <header className="sticky top-0 z-50 border-b border-border/50 bg-background/80 backdrop-blur-md">
         <div className="mx-auto max-w-4xl px-4 sm:px-6">
-          <div className="flex h-16 items-center justify-between">
+          <div className="flex h-16 items-center justify-between gap-3">
             <Link href="/" className="flex items-center gap-2.5">
               <span className="flex h-9 w-9 items-center justify-center rounded-full bg-primary text-primary-foreground">
                 <Wine className="h-5 w-5" />
@@ -70,6 +80,22 @@ export function Navbar({ unreadAlerts = 0 }: { unreadAlerts?: number }) {
                 <Plus className="h-4 w-4" />
                 Ajouter
               </Link>
+              {label && (
+                <span
+                  className="ml-2 max-w-[140px] truncate text-xs text-muted-foreground"
+                  title={userEmail ?? undefined}
+                >
+                  {label}
+                </span>
+              )}
+              <button
+                type="button"
+                onClick={() => signOut({ callbackUrl: "/login" })}
+                className="inline-flex items-center gap-1 rounded-md px-2 py-2 text-sm text-muted-foreground hover:bg-muted hover:text-foreground"
+                title="Déconnexion"
+              >
+                <LogOut className="h-4 w-4" />
+              </button>
             </nav>
           </div>
         </div>
@@ -110,6 +136,14 @@ export function Navbar({ unreadAlerts = 0 }: { unreadAlerts?: number }) {
             </span>
             Ajouter
           </Link>
+          <button
+            type="button"
+            onClick={() => signOut({ callbackUrl: "/login" })}
+            className="flex flex-col items-center gap-0.5 rounded-md px-3 py-1.5 text-xs font-medium text-muted-foreground"
+          >
+            <LogOut className="h-5 w-5" />
+            Sortir
+          </button>
         </div>
       </nav>
     </>

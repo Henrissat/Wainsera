@@ -18,10 +18,15 @@ import {
   CheckCircle2,
   Bell,
 } from "lucide-react";
+import { auth } from "@/auth";
+import { redirect } from "next/navigation";
 
 export const dynamic = "force-dynamic";
 
 export default async function ABoirePage() {
+  const session = await auth();
+  if (!session?.user?.id) redirect("/login");
+  const userId = session.user.id;
   const currentYear = new Date().getFullYear();
 
   let bottles: BottleRowData[] = [];
@@ -35,11 +40,11 @@ export default async function ABoirePage() {
   let dbError = false;
 
   try {
-    await syncDrinkAlerts(currentYear);
+    await syncDrinkAlerts(userId, currentYear);
 
     const [rawBottles, rawAlerts] = await Promise.all([
       prisma.bottle.findMany({
-        where: { status: "EN_STOCK" },
+        where: { userId, status: "EN_STOCK" },
         include: {
           wine: {
             include: {
@@ -54,7 +59,8 @@ export default async function ABoirePage() {
       prisma.drinkAlert.findMany({
         where: {
           forYear: currentYear,
-          bottle: { status: "EN_STOCK", quantity: { gt: 0 } },
+          wine: { userId },
+          bottle: { status: "EN_STOCK", quantity: { gt: 0 }, userId },
         },
         include: {
           wine: { select: { name: true, producer: true, vintage: true } },

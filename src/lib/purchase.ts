@@ -2,18 +2,24 @@ import { BottleFormat } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 
 export async function resolveMerchantId(
+  userId: string,
   merchantId: unknown,
   newMerchantName: unknown,
 ): Promise<string | null> {
   const existing = merchantId ? String(merchantId).trim() : "";
-  if (existing) return existing;
+  if (existing) {
+    const owned = await prisma.merchant.findFirst({
+      where: { id: existing, userId },
+    });
+    return owned ? owned.id : null;
+  }
 
   const name = newMerchantName ? String(newMerchantName).trim() : "";
   if (!name) return null;
 
   const merchant = await prisma.merchant.upsert({
-    where: { name },
-    create: { name },
+    where: { userId_name: { userId, name } },
+    create: { name, userId },
     update: {},
   });
   return merchant.id;
@@ -28,9 +34,7 @@ export function parsePurchaseFields(body: Record<string, unknown>) {
   const purchaseDateRaw = body.purchaseDate
     ? String(body.purchaseDate).trim()
     : "";
-  const purchaseDate = purchaseDateRaw
-    ? new Date(purchaseDateRaw)
-    : null;
+  const purchaseDate = purchaseDateRaw ? new Date(purchaseDateRaw) : null;
   const purchaseNotes = body.purchaseNotes
     ? String(body.purchaseNotes).trim()
     : null;

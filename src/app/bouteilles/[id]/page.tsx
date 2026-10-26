@@ -1,6 +1,7 @@
 import Link from "next/link";
-import { notFound } from "next/navigation";
+import { notFound, redirect } from "next/navigation";
 import { prisma } from "@/lib/prisma";
+import { auth } from "@/auth";
 import { getDrinkStatus, formatDrinkWindow } from "@/lib/drink-status";
 import { StatusBadge, BottleStatusBadge } from "@/components/status-badge";
 import {
@@ -33,6 +34,10 @@ export const dynamic = "force-dynamic";
 type Props = { params: Promise<{ id: string }> };
 
 export default async function BottleDetailPage({ params }: Props) {
+  const session = await auth();
+  if (!session?.user?.id) redirect("/login");
+  const userId = session.user.id;
+
   const { id } = await params;
   const currentYear = new Date().getFullYear();
 
@@ -40,7 +45,7 @@ export default async function BottleDetailPage({ params }: Props) {
   let dbError = false;
 
   try {
-    bottle = await loadBottle(id);
+    bottle = await loadBottle(id, userId);
   } catch {
     dbError = true;
   }
@@ -287,9 +292,9 @@ export default async function BottleDetailPage({ params }: Props) {
   );
 }
 
-async function loadBottle(id: string) {
-  return prisma.bottle.findUnique({
-    where: { id },
+async function loadBottle(id: string, userId: string) {
+  return prisma.bottle.findFirst({
+    where: { id, userId },
     include: {
       wine: {
         include: {

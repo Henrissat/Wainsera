@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
+import { requireUserId, unauthorized, notFound } from "@/lib/auth-utils";
 
 const KINDS = ["etiquette", "bouteille", "autre"] as const;
 
@@ -13,6 +14,9 @@ function isValidHttpUrl(value: string): boolean {
 }
 
 export async function POST(request: Request) {
+  const userId = await requireUserId();
+  if (!userId) return unauthorized();
+
   const body = await request.json();
   const url = String(body.url ?? "").trim();
   const kind = String(body.kind ?? "etiquette").trim().toLowerCase();
@@ -38,20 +42,17 @@ export async function POST(request: Request) {
   }
 
   if (bottleId) {
-    const bottle = await prisma.bottle.findUnique({ where: { id: bottleId } });
-    if (!bottle) {
-      return NextResponse.json(
-        { error: "Bouteille introuvable" },
-        { status: 404 },
-      );
-    }
+    const bottle = await prisma.bottle.findFirst({
+      where: { id: bottleId, userId },
+    });
+    if (!bottle) return notFound();
   }
 
   if (wineId) {
-    const wine = await prisma.wine.findUnique({ where: { id: wineId } });
-    if (!wine) {
-      return NextResponse.json({ error: "Vin introuvable" }, { status: 404 });
-    }
+    const wine = await prisma.wine.findFirst({
+      where: { id: wineId, userId },
+    });
+    if (!wine) return notFound();
   }
 
   const media = await prisma.media.create({
@@ -67,16 +68,26 @@ export async function POST(request: Request) {
 }
 
 export async function DELETE(request: Request) {
+  const userId = await requireUserId();
+  if (!userId) return unauthorized();
+
   const { searchParams } = new URL(request.url);
   const id = searchParams.get("id");
   if (!id) {
     return NextResponse.json({ error: "id requis" }, { status: 400 });
   }
 
-  try {
-    await prisma.media.delete({ where: { id } });
-    return NextResponse.json({ ok: true });
-  } catch {
-    return NextResponse.json({ error: "Photo introuvable" }, { status: 404 });
-  }
+  const media = await prisma.media.findFirst({
+    where: {
+      id,
+      OR: [
+        { bottle: { userId } },
+        { wine: { userId } },
+      ],
+    },
+  });
+  if (!media) return notFound();
+
+  await prisma.media.delete({ where: { id } });
+  return NextResponse.json({ ok: true });
 }

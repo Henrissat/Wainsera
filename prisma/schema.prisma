@@ -52,25 +52,48 @@ enum BottleFormat {
   OTHER
 }
 
+model User {
+  id           String     @id @default(cuid())
+  email        String     @unique
+  name         String?
+  passwordHash String
+  createdAt    DateTime   @default(now())
+  updatedAt    DateTime   @updatedAt
+
+  locations Location[]
+  merchants Merchant[]
+  wines     Wine[]
+  bottles   Bottle[]
+}
+
 model Location {
   id        String       @id @default(cuid())
   name      String
   type      LocationType
   notes     String?
+  userId    String
+  user      User         @relation(fields: [userId], references: [id], onDelete: Cascade)
   bottles   Bottle[]
   createdAt DateTime     @default(now())
   updatedAt DateTime     @updatedAt
+
+  @@index([userId])
 }
 
-/// Lieu / enseigne d'achat
+/// Lieu / enseigne d'achat (par cave / utilisateur)
 model Merchant {
   id        String   @id @default(cuid())
-  name      String   @unique
+  name      String
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
   bottles   Bottle[]
   createdAt DateTime @default(now())
+
+  @@unique([userId, name])
+  @@index([userId])
 }
 
-/// Région viticole (Bordeaux, Bourgogne…)
+/// Région viticole (Bordeaux, Bourgogne…) — catalogue global
 model Region {
   id           String        @id @default(cuid())
   name         String        @unique
@@ -139,6 +162,9 @@ model Wine {
   scaleSoupleTannique Int?
   scaleLegerPuissant  Int?
 
+  userId String
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
   grapes  WineGrape[]
   bottles Bottle[]
   alerts  DrinkAlert[]
@@ -147,6 +173,7 @@ model Wine {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
+  @@index([userId])
   @@index([vintage])
   @@index([wineType])
   @@index([regionId])
@@ -171,6 +198,9 @@ model Bottle {
   purchaseNotes String?
   merchant      Merchant? @relation(fields: [merchantId], references: [id], onDelete: SetNull)
 
+  userId String
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
   wine     Wine     @relation(fields: [wineId], references: [id], onDelete: Cascade)
   location Location @relation(fields: [locationId], references: [id])
   alerts   DrinkAlert[]
@@ -179,6 +209,7 @@ model Bottle {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
+  @@index([userId])
   @@index([status])
   @@index([locationId])
   @@index([wineId])

@@ -3,6 +3,7 @@ import { WineType } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 import { drinkStatus, drinkStatusLabel } from "@/lib/drink-status";
 import { parsePurchaseFields, resolveMerchantId } from "@/lib/purchase";
+import { requireUserId, unauthorized, notFound } from "@/lib/auth-utils";
 
 function parseOptionalInt(value: unknown): number | null {
   if (value === "" || value == null) return null;
@@ -23,8 +24,11 @@ function parseRating(value: unknown): number | null {
 }
 
 export async function GET() {
+  const userId = await requireUserId();
+  if (!userId) return unauthorized();
+
   const bottles = await prisma.bottle.findMany({
-    where: { status: "EN_STOCK" },
+    where: { userId, status: "EN_STOCK" },
     include: {
       wine: {
         include: {
@@ -53,6 +57,9 @@ export async function GET() {
 }
 
 export async function POST(request: Request) {
+  const userId = await requireUserId();
+  if (!userId) return unauthorized();
+
   const body = await request.json();
 
   const producer = String(body.producer ?? "").trim();
@@ -129,15 +136,10 @@ export async function POST(request: Request) {
     );
   }
 
-  const location = await prisma.location.findUnique({
-    where: { id: locationId },
+  const location = await prisma.location.findFirst({
+    where: { id: locationId, userId },
   });
-  if (!location) {
-    return NextResponse.json(
-      { error: "Emplacement introuvable" },
-      { status: 404 },
-    );
-  }
+  if (!location) return notFound();
 
   const region = await prisma.region.findUnique({ where: { id: regionId } });
   if (!region) {
@@ -158,6 +160,7 @@ export async function POST(request: Request) {
 
   const purchase = parsePurchaseFields(body);
   const merchantId = await resolveMerchantId(
+    userId,
     body.merchantId,
     body.newMerchant,
   );
@@ -169,6 +172,7 @@ export async function POST(request: Request) {
       purchasePrice: purchase.purchasePrice,
       purchaseDate: purchase.purchaseDate,
       purchaseNotes: purchase.purchaseNotes,
+      user: { connect: { id: userId } },
       location: { connect: { id: locationId } },
       ...(merchantId
         ? { merchant: { connect: { id: merchantId } } }
@@ -194,6 +198,7 @@ export async function POST(request: Request) {
           scaleSecMoelleux,
           scaleSoupleTannique,
           scaleLegerPuissant,
+          user: { connect: { id: userId } },
           region: { connect: { id: regionId } },
           ...(appellationId
             ? { appellation: { connect: { id: appellationId } } }

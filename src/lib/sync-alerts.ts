@@ -6,9 +6,12 @@ import { drinkStatus } from "@/lib/drink-status";
  * Crée les alertes manquantes pour l’année civile (pas de cron).
  * Idempotent : ne duplique pas wineId+bottleId+kind+forYear.
  */
-export async function syncDrinkAlerts(year = new Date().getFullYear()) {
+export async function syncDrinkAlerts(
+  userId: string,
+  year = new Date().getFullYear(),
+) {
   const bottles = await prisma.bottle.findMany({
-    where: { status: "EN_STOCK", quantity: { gt: 0 } },
+    where: { userId, status: "EN_STOCK", quantity: { gt: 0 } },
     include: { wine: true },
   });
 
@@ -50,13 +53,17 @@ export async function syncDrinkAlerts(year = new Date().getFullYear()) {
   return { created, year };
 }
 
-export async function countUnreadAlerts(year = new Date().getFullYear()) {
+export async function countUnreadAlerts(
+  userId: string,
+  year = new Date().getFullYear(),
+) {
   return prisma.drinkAlert.count({
     where: {
       forYear: year,
       readAt: null,
+      wine: { userId },
       OR: [
-        { bottle: { status: "EN_STOCK", quantity: { gt: 0 } } },
+        { bottle: { status: "EN_STOCK", quantity: { gt: 0 }, userId } },
         { bottleId: null },
       ],
     },

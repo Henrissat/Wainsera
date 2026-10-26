@@ -1,10 +1,16 @@
 import { prisma } from "@/lib/prisma";
 import { AddBottleForm } from "@/components/add-bottle-form";
 import { ErrorState } from "@/components/empty-state";
+import { auth } from "@/auth";
+import { redirect } from "next/navigation";
 
 export const dynamic = "force-dynamic";
 
 export default async function AjouterPage() {
+  const session = await auth();
+  if (!session?.user?.id) redirect("/login");
+  const userId = session.user.id;
+
   let locations: { id: string; name: string; type: string }[] = [];
   let regions: {
     id: string;
@@ -18,6 +24,7 @@ export default async function AjouterPage() {
   try {
     [locations, regions, grapes, merchants] = await Promise.all([
       prisma.location.findMany({
+        where: { userId },
         orderBy: [{ type: "asc" }, { name: "asc" }],
         select: { id: true, name: true, type: true },
       }),
@@ -35,6 +42,7 @@ export default async function AjouterPage() {
         select: { id: true, name: true },
       }),
       prisma.merchant.findMany({
+        where: { userId },
         orderBy: { name: "asc" },
         select: { id: true, name: true },
       }),

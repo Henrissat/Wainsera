@@ -1,15 +1,20 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { syncDrinkAlerts, ALERT_KIND_LABELS } from "@/lib/sync-alerts";
+import { requireUserId, unauthorized } from "@/lib/auth-utils";
 
 export async function GET() {
+  const userId = await requireUserId();
+  if (!userId) return unauthorized();
+
   const year = new Date().getFullYear();
-  await syncDrinkAlerts(year);
+  await syncDrinkAlerts(userId, year);
 
   const alerts = await prisma.drinkAlert.findMany({
     where: {
       forYear: year,
-      bottle: { status: "EN_STOCK", quantity: { gt: 0 } },
+      wine: { userId },
+      bottle: { status: "EN_STOCK", quantity: { gt: 0 }, userId },
     },
     include: {
       wine: { select: { name: true, producer: true, vintage: true } },
@@ -30,9 +35,16 @@ export async function GET() {
 
 /** Marquer toutes les alertes de l’année comme lues */
 export async function PATCH() {
+  const userId = await requireUserId();
+  if (!userId) return unauthorized();
+
   const year = new Date().getFullYear();
   const result = await prisma.drinkAlert.updateMany({
-    where: { forYear: year, readAt: null },
+    where: {
+      forYear: year,
+      readAt: null,
+      wine: { userId },
+    },
     data: { readAt: new Date() },
   });
   return NextResponse.json({ updated: result.count });
