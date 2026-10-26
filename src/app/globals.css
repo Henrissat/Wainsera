@@ -1,0 +1,132 @@
+@import "tailwindcss";
+
+/* Tokens HSL (sans hsl()) — palette cave / papier / bordeaux */
+:root {
+  --background: 40 28% 96%;
+  --foreground: 30 15% 12%;
+  --card: 40 30% 98%;
+  --card-foreground: 30 15% 12%;
+  --primary: 350 55% 32%;
+  --primary-foreground: 40 30% 96%;
+  --secondary: 35 20% 88%;
+  --secondary-foreground: 30 15% 18%;
+  --muted: 35 15% 90%;
+  --muted-foreground: 30 10% 42%;
+  --accent: 30 30% 48%;
+  --accent-foreground: 40 30% 96%;
+  --destructive: 0 65% 42%;
+  --destructive-foreground: 40 30% 96%;
+  --border: 35 15% 82%;
+  --input: 35 15% 82%;
+  --ring: 350 55% 32%;
+  --success: 145 30% 35%;
+  --warning: 38 60% 45%;
+  --danger: 0 65% 42%;
+}
+
+@theme inline {
+  --color-background: hsl(var(--background));
+  --color-foreground: hsl(var(--foreground));
+  --color-card: hsl(var(--card));
+  --color-card-foreground: hsl(var(--card-foreground));
+  --color-primary: hsl(var(--primary));
+  --color-primary-foreground: hsl(var(--primary-foreground));
+  --color-secondary: hsl(var(--secondary));
+  --color-secondary-foreground: hsl(var(--secondary-foreground));
+  --color-muted: hsl(var(--muted));
+  --color-muted-foreground: hsl(var(--muted-foreground));
+  --color-accent: hsl(var(--accent));
+  --color-accent-foreground: hsl(var(--accent-foreground));
+  --color-destructive: hsl(var(--destructive));
+  --color-destructive-foreground: hsl(var(--destructive-foreground));
+  --color-border: hsl(var(--border));
+  --color-input: hsl(var(--input));
+  --color-ring: hsl(var(--ring));
+  --color-success: hsl(var(--success));
+  --color-warning: hsl(var(--warning));
+  --color-danger: hsl(var(--danger));
+  --font-sans: var(--font-sans);
+  --font-display: var(--font-display);
+}
+
+@layer base {
+  * {
+    @apply border-border;
+  }
+
+  body {
+    @apply bg-background text-foreground antialiased;
+  }
+}
+
+.paper-texture {
+  background-image: radial-gradient(
+    circle at 1px 1px,
+    hsl(35 15% 80% / 0.15) 1px,
+    transparent 0
+  );
+  background-size: 24px 24px;
+}
+
+@keyframes fade-in-up {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes badge-pop {
+  0% {
+    transform: scale(0.85);
+    opacity: 0;
+  }
+  60% {
+    transform: scale(1.08);
+  }
+  100% {
+    transform: scale(1);
+    opacity: 1;
+  }
+}
+
+.animate-fade-in-up {
+  animation: fade-in-up 0.4s ease-out both;
+}
+
+.animate-badge-pop {
+  animation: badge-pop 0.3s ease-out both;
+}
+
+.stagger-1 {
+  animation-delay: 0.04s;
+}
+.stagger-2 {
+  animation-delay: 0.08s;
+}
+.stagger-3 {
+  animation-delay: 0.12s;
+}
+.stagger-4 {
+  animation-delay: 0.16s;
+}
+.stagger-5 {
+  animation-delay: 0.2s;
+}
+.stagger-6 {
+  animation-delay: 0.24s;
+}
+.stagger-7 {
+  animation-delay: 0.28s;
+}
+.stagger-8 {
+  animation-delay: 0.32s;
+}
+
+*:focus-visible {
+  outline: 2px solid hsl(var(--ring));
+  outline-offset: 2px;
+}

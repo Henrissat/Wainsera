@@ -1,0 +1,216 @@
+// Schéma Wainsera — après modification : npm run db:push && npm run db:seed
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum LocationType {
+  CAVE
+  MAISON
+  GRENIER
+  AUTRE
+}
+
+enum BottleStatus {
+  EN_STOCK
+  BUE
+  OFFERTE
+  PERDUE
+}
+
+enum AlertKind {
+  ENTREE_FENETRE
+  DEBUT_PIC
+  URGENT
+  LIMITE
+}
+
+enum WineType {
+  ROUGE
+  BLANC
+  ROSE
+  CHAMPAGNE
+  CREMANT
+  AUTRE
+}
+
+/// Format de la bouteille
+enum BottleFormat {
+  PICCOLO_20
+  DEMI_37_5
+  STANDARD_75
+  LITER_100
+  MAGNUM_150
+  JEROBOAM_300
+  REHOBOAM_450
+  MATHUSALEM_600
+  OTHER
+}
+
+model Location {
+  id        String       @id @default(cuid())
+  name      String
+  type      LocationType
+  notes     String?
+  bottles   Bottle[]
+  createdAt DateTime     @default(now())
+  updatedAt DateTime     @updatedAt
+}
+
+/// Lieu / enseigne d'achat
+model Merchant {
+  id        String   @id @default(cuid())
+  name      String   @unique
+  bottles   Bottle[]
+  createdAt DateTime @default(now())
+}
+
+/// Région viticole (Bordeaux, Bourgogne…)
+model Region {
+  id           String        @id @default(cuid())
+  name         String        @unique
+  appellations Appellation[]
+  wines        Wine[]
+}
+
+/// Appellation / AOP-AOC (Saint-Émilion, Pauillac…)
+model Appellation {
+  id       String  @id @default(cuid())
+  name     String
+  regionId String?
+  region   Region? @relation(fields: [regionId], references: [id], onDelete: SetNull)
+  wines    Wine[]
+
+  @@unique([name, regionId])
+  @@index([regionId])
+}
+
+/// Cépage (Merlot, Cabernet Sauvignon…)
+model Grape {
+  id    String      @id @default(cuid())
+  name  String      @unique
+  wines WineGrape[]
+}
+
+model WineGrape {
+  wineId  String
+  grapeId String
+  percent Int?
+
+  wine  Wine  @relation(fields: [wineId], references: [id], onDelete: Cascade)
+  grape Grape @relation(fields: [grapeId], references: [id], onDelete: Cascade)
+
+  @@id([wineId, grapeId])
+}
+
+model Wine {
+  id      String @id @default(cuid())
+  /// Libellé affiché (souvent = domaine + cuvée)
+  name    String
+  /// Domaine / château / maison
+  producer String?
+  /// Nom de cuvée (si différent du domaine)
+  cuvee    String?
+  vintage  Int?
+
+  wineType      WineType     @default(ROUGE)
+  regionId      String?
+  appellationId String?
+  region        Region?      @relation(fields: [regionId], references: [id], onDelete: SetNull)
+  appellation   Appellation? @relation(fields: [appellationId], references: [id], onDelete: SetNull)
+
+  alcoholAbv Float?
+
+  drinkFrom Int
+  peakStart Int
+  peakEnd   Int
+  drinkTo   Int
+
+  rating Int?
+  notes  String?
+
+  scaleDouxAcide      Int?
+  scaleSecMoelleux    Int?
+  scaleSoupleTannique Int?
+  scaleLegerPuissant  Int?
+
+  grapes  WineGrape[]
+  bottles Bottle[]
+  alerts  DrinkAlert[]
+  media   Media[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([vintage])
+  @@index([wineType])
+  @@index([regionId])
+  @@index([appellationId])
+  @@index([peakStart, peakEnd])
+}
+
+model Bottle {
+  id         String       @id @default(cuid())
+  wineId     String
+  locationId String
+  status     BottleStatus @default(EN_STOCK)
+  /// Nombre de bouteilles identiques à cet emplacement
+  quantity   Int          @default(1)
+  format     BottleFormat @default(STANDARD_75)
+  notes      String?
+
+  /// Achat
+  purchasePrice Float?
+  purchaseDate  DateTime?
+  merchantId    String?
+  purchaseNotes String?
+  merchant      Merchant? @relation(fields: [merchantId], references: [id], onDelete: SetNull)
+
+  wine     Wine     @relation(fields: [wineId], references: [id], onDelete: Cascade)
+  location Location @relation(fields: [locationId], references: [id])
+  alerts   DrinkAlert[]
+  media    Media[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([status])
+  @@index([locationId])
+  @@index([wineId])
+  @@index([merchantId])
+  @@index([format])
+}
+
+model DrinkAlert {
+  id       String    @id @default(cuid())
+  wineId   String
+  bottleId String?
+  kind     AlertKind
+  forYear  Int
+  sentAt   DateTime  @default(now())
+  readAt   DateTime?
+
+  wine   Wine    @relation(fields: [wineId], references: [id], onDelete: Cascade)
+  bottle Bottle? @relation(fields: [bottleId], references: [id], onDelete: Cascade)
+
+  @@index([sentAt])
+  @@index([wineId, kind, forYear])
+}
+
+model Media {
+  id       String  @id @default(cuid())
+  url      String
+  kind     String  @default("etiquette")
+  wineId   String?
+  bottleId String?
+
+  wine   Wine?   @relation(fields: [wineId], references: [id], onDelete: Cascade)
+  bottle Bottle? @relation(fields: [bottleId], references: [id], onDelete: Cascade)
+
+  createdAt DateTime @default(now())
+}
