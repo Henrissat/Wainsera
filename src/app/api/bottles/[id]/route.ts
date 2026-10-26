@@ -94,13 +94,15 @@ export async function PATCH(request: Request, { params }: Params) {
     const bottle = await prisma.bottle.update({
       where: { id },
       data: {
-        locationId,
         quantity,
         format: purchase.format,
         purchasePrice: purchase.purchasePrice,
         purchaseDate: purchase.purchaseDate,
         purchaseNotes: purchase.purchaseNotes,
-        merchantId,
+        location: { connect: { id: locationId } },
+        merchant: merchantId
+          ? { connect: { id: merchantId } }
+          : { disconnect: true },
         wine: {
           update: {
             name,
@@ -109,8 +111,6 @@ export async function PATCH(request: Request, { params }: Params) {
             vintage:
               vintage != null && !Number.isNaN(vintage) ? vintage : null,
             wineType,
-            regionId,
-            appellationId,
             alcoholAbv:
               alcoholAbv != null && !Number.isNaN(alcoholAbv)
                 ? alcoholAbv
@@ -125,8 +125,16 @@ export async function PATCH(request: Request, { params }: Params) {
             scaleSecMoelleux: parseScale(body.scaleSecMoelleux),
             scaleSoupleTannique: parseScale(body.scaleSoupleTannique),
             scaleLegerPuissant: parseScale(body.scaleLegerPuissant),
+            region: { connect: { id: regionId } },
+            appellation: appellationId
+              ? { connect: { id: appellationId } }
+              : { disconnect: true },
             grapes: grapeIds.length
-              ? { create: grapeIds.map((grapeId) => ({ grapeId })) }
+              ? {
+                  create: grapeIds.map((grapeId) => ({
+                    grape: { connect: { id: grapeId } },
+                  })),
+                }
               : undefined,
           },
         },

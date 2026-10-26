@@ -164,13 +164,15 @@ export async function POST(request: Request) {
 
   const bottle = await prisma.bottle.create({
     data: {
-      locationId,
       quantity,
       format: purchase.format,
       purchasePrice: purchase.purchasePrice,
       purchaseDate: purchase.purchaseDate,
       purchaseNotes: purchase.purchaseNotes,
-      merchantId,
+      location: { connect: { id: locationId } },
+      ...(merchantId
+        ? { merchant: { connect: { id: merchantId } } }
+        : {}),
       wine: {
         create: {
           name,
@@ -178,8 +180,6 @@ export async function POST(request: Request) {
           cuvee,
           vintage: vintage != null && !Number.isNaN(vintage) ? vintage : null,
           wineType,
-          regionId,
-          appellationId,
           alcoholAbv:
             alcoholAbv != null && !Number.isNaN(alcoholAbv)
               ? alcoholAbv
@@ -194,9 +194,15 @@ export async function POST(request: Request) {
           scaleSecMoelleux,
           scaleSoupleTannique,
           scaleLegerPuissant,
+          region: { connect: { id: regionId } },
+          ...(appellationId
+            ? { appellation: { connect: { id: appellationId } } }
+            : {}),
           grapes: grapeIds.length
             ? {
-                create: grapeIds.map((grapeId) => ({ grapeId })),
+                create: grapeIds.map((grapeId) => ({
+                  grape: { connect: { id: grapeId } },
+                })),
               }
             : undefined,
         },
