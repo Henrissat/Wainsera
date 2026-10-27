@@ -1,103 +1,64 @@
 import Link from "next/link";
-import { Suspense } from "react";
 import { prisma } from "@/lib/prisma";
 import {
   getDrinkStatus,
   formatDrinkWindow,
   DRINK_STATUS_ORDER,
-  type DrinkWindowStatus,
 } from "@/lib/drink-status";
 import { BottleRow, type BottleRowData } from "@/components/bottle-row";
-import { EmptyState, ErrorState } from "@/components/empty-state";
-import { InventoryFilters } from "@/components/inventory-filters";
-import { Plus } from "lucide-react";
-import type { WineType } from "@prisma/client";
-import { syncDrinkAlerts } from "@/lib/sync-alerts";
+import { ErrorState } from "@/components/empty-state";
 import { getViewCaveUserId, getSessionUserId } from "@/lib/cave-user";
 import { pickThumbnailUrl } from "@/lib/media-thumb";
+import { syncDrinkAlerts } from "@/lib/sync-alerts";
+import { formatPrice, getWineTypeLabel, WINE_TYPE_LABELS } from "@/lib/types";
+import type { WineType } from "@prisma/client";
+import {
+  Wine,
+  Banknote,
+  GlassWater,
+  Hourglass,
+  ArrowRight,
+  Plus,
+} from "lucide-react";
 
 export const dynamic = "force-dynamic";
 
-type SearchParams = Promise<Record<string, string | string[] | undefined>>;
-
-export default async function HomePage({
-  searchParams,
-}: {
-  searchParams: SearchParams;
-}) {
+export default async function DashboardPage() {
   const userId = await getViewCaveUserId();
   const canWrite = !!(await getSessionUserId());
-
-  const sp = await searchParams;
-  const q = String(sp.q ?? "").trim().toLowerCase();
-  const type = String(sp.type ?? "") as WineType | "";
-  const region = String(sp.region ?? "");
-  const grape = String(sp.grape ?? "");
-  const drink = String(sp.drink ?? "") as DrinkWindowStatus | "";
-  const location = String(sp.location ?? "");
-  const sort = String(sp.sort ?? "urgence");
-
   const currentYear = new Date().getFullYear();
 
-  let bottles: BottleRowData[] = [];
-  let filterRegions: { id: string; name: string }[] = [];
-  let filterGrapes: { id: string; name: string }[] = [];
-  let filterLocations: { id: string; name: string }[] = [];
   let dbError = false;
   let totalQty = 0;
+  let totalValue = 0;
+  let readyCount = 0;
+  let agingCount = 0;
+  let byType: { type: WineType; qty: number }[] = [];
+  let recent: BottleRowData[] = [];
+  let toDrink: BottleRowData[] = [];
 
   try {
     if (userId) {
       await syncDrinkAlerts(userId, currentYear);
 
-      const [rawBottles, regions, grapes, locations] = await Promise.all([
-        prisma.bottle.findMany({
-          where: {
-            userId,
-            status: "EN_STOCK",
-            ...(location ? { locationId: location } : {}),
-            wine: {
-              ...(type ? { wineType: type } : {}),
-              ...(region ? { regionId: region } : {}),
-              ...(grape
-                ? { grapes: { some: { grapeId: grape } } }
-                : {}),
+      const raw = await prisma.bottle.findMany({
+        where: { userId, status: "EN_STOCK" },
+        include: {
+          wine: {
+            include: {
+              grapes: { include: { grape: true } },
+              region: true,
+              appellation: true,
+              media: { select: { url: true, kind: true }, take: 3 },
             },
           },
-          include: {
-            wine: {
-              include: {
-                grapes: { include: { grape: true } },
-                region: true,
-                appellation: true,
-                media: { select: { url: true, kind: true }, take: 3 },
-              },
-            },
-            location: true,
-            media: { select: { url: true, kind: true }, take: 3 },
-          },
-        }),
-        prisma.region.findMany({
-          orderBy: { name: "asc" },
-          select: { id: true, name: true },
-        }),
-        prisma.grape.findMany({
-          orderBy: { name: "asc" },
-          select: { id: true, name: true },
-        }),
-        prisma.location.findMany({
-          where: { userId },
-          orderBy: { name: "asc" },
-          select: { id: true, name: true },
-        }),
-      ]);
+          location: true,
+          media: { select: { url: true, kind: true }, take: 3 },
+        },
+        orderBy: { createdAt: "desc" },
+      });
 
-    filterRegions = regions;
-    filterGrapes = grapes;
-    filterLocations = locations;
-
-    bottles = rawBottles
-      .map((b) => {
+      const rows: BottleRowData[] = raw.map((b) => {
         const status = getDrinkStatus(currentYear, b.wine);
         return {
           id: b.id,
@@ -124,45 +85,46 @@ export default async function HomePage({
           drinkWindow: formatDrinkWindow(b.wine),
           drinkStatus: status,
         };
-      })
-      .filter((b) => {
-        if (drink && b.drinkStatus.kind !== drink) return false;
-        if (!q) return true;
-        const hay = [
-          b.wine.name,
-          b.wine.producer,
-          b.wine.cuvee,
-          b.wine.appellation?.name,
-          b.wine.region?.name,
-          ...(b.wine.grapes?.map((g) => g.grape.name) ?? []),
-        ]
-          .filter(Boolean)
-          .join(" ")
-          .toLowerCase();
-        return hay.includes(q);
       });
 
-    bottles.sort((a, b) => {
-      if (sort === "nom") {
-        return (a.wine.producer || a.wine.name).localeCompare(
-          b.wine.producer || b.wine.name,
-          "fr",
-        );
+      for (const b of rows) {
+        const q = b.quantity ?? 1;
+        totalQty += q;
+        if (b.purchasePrice != null) totalValue += b.purchasePrice * q;
+        if (
+          b.drinkStatus.kind === "PRET" ||
+          b.drinkStatus.kind === "OPTIMUM"
+        ) {
+          readyCount += q;
+        }
+        if (b.drinkStatus.kind === "TROP_JEUNE") agingCount += q;
       }
-      if (sort === "millesime") {
-        return (b.wine.vintage ?? 0) - (a.wine.vintage ?? 0);
-      }
-      if (sort === "note") {
-        return (b.wine.rating ?? -1) - (a.wine.rating ?? -1);
-      }
-      const orderDiff =
-        DRINK_STATUS_ORDER[a.drinkStatus.kind] -
-        DRINK_STATUS_ORDER[b.drinkStatus.kind];
-      if (orderDiff !== 0) return orderDiff;
-      return (a.wine.vintage ?? 9999) - (b.wine.vintage ?? 9999);
-    });
 
-      totalQty = bottles.reduce((sum, b) => sum + (b.quantity ?? 1), 0);
+      const typeMap = new Map<WineType, number>();
+      for (const b of rows) {
+        const t = (b.wine.wineType as WineType) || "AUTRE";
+        typeMap.set(t, (typeMap.get(t) ?? 0) + (b.quantity ?? 1));
+      }
+      byType = [...typeMap.entries()]
+        .map(([type, qty]) => ({ type, qty }))
+        .sort((a, b) => b.qty - a.qty);
+
+      recent = rows.slice(0, 6);
+      toDrink = [...rows]
+        .filter(
+          (b) =>
+            b.drinkStatus.kind === "OPTIMUM" ||
+            b.drinkStatus.kind === "URGENT" ||
+            b.drinkStatus.kind === "DEPASSE",
+        )
+        .sort((a, b) => {
+          const d =
+            DRINK_STATUS_ORDER[a.drinkStatus.kind] -
+            DRINK_STATUS_ORDER[b.drinkStatus.kind];
+          if (d !== 0) return d;
+          return (a.wine.vintage ?? 9999) - (b.wine.vintage ?? 9999);
+        })
+        .slice(0, 5);
     }
   } catch {
     dbError = true;
@@ -170,96 +132,214 @@ export default async function HomePage({
 
   if (dbError) {
     return (
-      <div className="space-y-6">
-        <HeroHeader count={null} qty={null} canWrite={canWrite} />
-        <ErrorState
-          title="Cave inaccessible"
-          description="Vérifie DATABASE_URL dans .env (compte Neon), puis lance npm run db:push."
-        />
-      </div>
+      <ErrorState
+        title="Cave inaccessible"
+        description="Vérifie DATABASE_URL dans .env (compte Neon)."
+      />
     );
   }
 
+  const typeTotal = byType.reduce((s, t) => s + t.qty, 0) || 1;
+
   return (
-    <div className="space-y-6">
-      <HeroHeader count={bottles.length} qty={totalQty} canWrite={canWrite} />
-
-      <Suspense fallback={null}>
-        <InventoryFilters
-          regions={filterRegions}
-          grapes={filterGrapes}
-          locations={filterLocations}
-        />
-      </Suspense>
-
-      {bottles.length === 0 ? (
-        <EmptyState
-          title="Aucun résultat"
-          description="Aucune bouteille ne correspond aux filtres — ou la cave est vide."
-          action={
-            canWrite ? (
-              <Link
-                href="/ajouter"
-                className="inline-flex items-center gap-2 rounded-md bg-primary px-4 py-2.5 text-sm font-medium text-primary-foreground transition-colors hover:bg-primary/90"
-              >
-                <Plus className="h-4 w-4" />
-                Ajouter une bouteille
-              </Link>
-            ) : (
-              <Link
-                href="/login"
-                className="inline-flex items-center gap-2 rounded-md border border-border px-4 py-2.5 text-sm font-medium hover:bg-muted/40"
-              >
-                Se connecter pour gérer la cave
-              </Link>
-            )
-          }
-        />
-      ) : (
-        <div className="space-y-2">
-          {bottles.map((bottle, i) => (
-            <BottleRow key={bottle.id} bottle={bottle} index={i} />
-          ))}
+    <div className="space-y-8">
+      <div className="flex flex-wrap items-end justify-between gap-4">
+        <div>
+          <p className="text-sm font-medium uppercase tracking-wider text-muted-foreground">
+            Tableau de bord
+          </p>
+          <h1 className="mt-1 font-display text-3xl font-bold text-foreground">
+            Accueil
+          </h1>
+          <p className="mt-1 text-sm text-muted-foreground">
+            Vue d&apos;ensemble de ta cave
+          </p>
         </div>
-      )}
+        <div className="flex gap-2">
+          <Link
+            href="/inventaire"
+            className="inline-flex items-center gap-1.5 rounded-xl border border-border bg-card px-3.5 py-2 text-sm font-medium hover:bg-muted/50"
+          >
+            Inventaire
+            <ArrowRight className="h-4 w-4" />
+          </Link>
+          {canWrite && (
+            <Link
+              href="/ajouter"
+              className="inline-flex items-center gap-1.5 rounded-xl bg-primary px-3.5 py-2 text-sm font-medium text-primary-foreground hover:bg-primary/90"
+            >
+              <Plus className="h-4 w-4" />
+              Ajouter
+            </Link>
+          )}
+        </div>
+      </div>
+
+      <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+        <KpiCard
+          icon={<Wine className="h-4 w-4" />}
+          label="Bouteilles"
+          value={String(totalQty)}
+        />
+        <KpiCard
+          icon={<Banknote className="h-4 w-4" />}
+          label="Valeur estimée"
+          value={formatPrice(totalValue || null)}
+          hint="Somme des prix d'achat"
+        />
+        <KpiCard
+          icon={<GlassWater className="h-4 w-4" />}
+          label="Prêtes à boire"
+          value={String(readyCount)}
+          tone="success"
+        />
+        <KpiCard
+          icon={<Hourglass className="h-4 w-4" />}
+          label="À garder"
+          value={String(agingCount)}
+          tone="muted"
+        />
+      </div>
+
+      <div className="grid gap-6 lg:grid-cols-5">
+        <section className="rounded-2xl border border-border/70 bg-card p-5 shadow-sm lg:col-span-2">
+          <h2 className="font-display text-base font-semibold">
+            Répartition par type
+          </h2>
+          {byType.length === 0 ? (
+            <p className="mt-6 text-sm text-muted-foreground">Aucune donnée.</p>
+          ) : (
+            <ul className="mt-5 space-y-3">
+              {byType.map((t) => {
+                const pct = Math.round((t.qty / typeTotal) * 100);
+                return (
+                  <li key={t.type}>
+                    <div className="mb-1 flex justify-between text-sm">
+                      <span>{getWineTypeLabel(t.type)}</span>
+                      <span className="tabular-nums text-muted-foreground">
+                        {t.qty} · {pct}%
+                      </span>
+                    </div>
+                    <div className="h-2 overflow-hidden rounded-full bg-muted">
+                      <div
+                        className="h-full rounded-full bg-primary transition-all"
+                        style={{ width: `${pct}%` }}
+                      />
+                    </div>
+                  </li>
+                );
+              })}
+            </ul>
+          )}
+          {byType.length > 0 && (
+            <div className="mt-5 flex flex-wrap gap-2">
+              {byType.map((t) => (
+                <span
+                  key={t.type}
+                  className="rounded-full bg-muted px-2.5 py-1 text-xs text-muted-foreground"
+                >
+                  {WINE_TYPE_LABELS[t.type]}
+                </span>
+              ))}
+            </div>
+          )}
+        </section>
+
+        <section className="rounded-2xl border border-border/70 bg-card p-5 shadow-sm lg:col-span-3">
+          <div className="flex items-center justify-between gap-2">
+            <h2 className="font-display text-base font-semibold">À boire</h2>
+            <Link
+              href="/a-boire"
+              className="text-xs font-medium text-primary hover:underline"
+            >
+              Voir tout
+            </Link>
+          </div>
+          {toDrink.length === 0 ? (
+            <p className="mt-6 text-sm text-muted-foreground">
+              Rien d&apos;urgent pour le moment.
+            </p>
+          ) : (
+            <div className="mt-4 space-y-2">
+              {toDrink.map((b, i) => (
+                <BottleRow key={b.id} bottle={b} index={i} />
+              ))}
+            </div>
+          )}
+        </section>
+      </div>
+
+      <section>
+        <div className="mb-3 flex items-center justify-between gap-2">
+          <h2 className="font-display text-base font-semibold">
+            Dernières acquisitions
+          </h2>
+          <Link
+            href="/inventaire"
+            className="text-xs font-medium text-primary hover:underline"
+          >
+            Inventaire complet
+          </Link>
+        </div>
+        {recent.length === 0 ? (
+          <div className="rounded-2xl border border-dashed border-border bg-card/50 px-5 py-10 text-center text-sm text-muted-foreground">
+            Aucune bouteille pour l&apos;instant.
+            {canWrite && (
+              <>
+                {" "}
+                <Link href="/ajouter" className="font-medium text-primary underline-offset-2 hover:underline">
+                  Ajouter la première
+                </Link>
+              </>
+            )}
+          </div>
+        ) : (
+          <div className="grid gap-2 sm:grid-cols-2">
+            {recent.map((b, i) => (
+              <BottleRow key={b.id} bottle={b} index={i} />
+            ))}
+          </div>
+        )}
+      </section>
     </div>
   );
 }
 
-function HeroHeader({
-  count,
-  qty,
-  canWrite,
+function KpiCard({
+  icon,
+  label,
+  value,
+  hint,
+  tone = "default",
 }: {
-  count: number | null;
-  qty: number | null;
-  canWrite?: boolean;
+  icon: React.ReactNode;
+  label: string;
+  value: string;
+  hint?: string;
+  tone?: "default" | "success" | "muted";
 }) {
   return (
-    <div className="flex items-end justify-between gap-4 border-b border-border/50 pb-5">
-      <div>
-        <p className="text-sm font-medium uppercase tracking-wider text-muted-foreground">
-          Inventaire
-        </p>
-        <h2 className="mt-1 font-display text-3xl font-bold leading-tight text-foreground">
-          Wainsera
-        </h2>
-        {count !== null && qty !== null && (
-          <p className="mt-1 text-sm text-muted-foreground">
-            {count} fiche{count > 1 ? "s" : ""}
-            {qty !== count ? ` · ${qty} bouteille${qty > 1 ? "s" : ""}` : ""}
-          </p>
-        )}
-      </div>
-      {count !== null && canWrite && (
-        <Link
-          href="/ajouter"
-          className="inline-flex shrink-0 items-center gap-1.5 rounded-md bg-primary px-3.5 py-2 text-sm font-medium text-primary-foreground transition-colors hover:bg-primary/90"
+    <div className="rounded-2xl border border-border/70 bg-card p-4 shadow-sm">
+      <div className="flex items-center gap-2 text-muted-foreground">
+        <span
+          className={
+            tone === "success"
+              ? "text-success"
+              : tone === "muted"
+                ? "text-muted-foreground"
+                : "text-primary"
+          }
         >
-          <Plus className="h-4 w-4" />
-          Ajouter
-        </Link>
-      )}
+          {icon}
+        </span>
+        <span className="text-xs font-medium uppercase tracking-wide">
+          {label}
+        </span>
+      </div>
+      <p className="mt-2 font-display text-2xl font-bold tabular-nums text-foreground">
+        {value}
+      </p>
+      {hint && <p className="mt-0.5 text-[11px] text-muted-foreground">{hint}</p>}
     </div>
   );
 }

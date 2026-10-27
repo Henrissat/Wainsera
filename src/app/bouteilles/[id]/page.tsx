@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { prisma } from "@/lib/prisma";
-import { getDrinkStatus, formatDrinkWindow } from "@/lib/drink-status";
+import { getDrinkStatus } from "@/lib/drink-status";
 import { getViewCaveUserId, getSessionUserId } from "@/lib/cave-user";
 import { StatusBadge, BottleStatusBadge } from "@/components/status-badge";
 import {
@@ -17,10 +17,10 @@ import { formatWineSummary } from "@/lib/wine-label";
 import { ErrorState } from "@/components/empty-state";
 import BottleActions from "@/components/bottle-actions";
 import { BottlePhotos } from "@/components/bottle-photos";
+import { GardeCurve } from "@/components/garde-curve";
 import {
   MapPin,
   Wine,
-  Calendar,
   FileText,
   ArrowLeft,
   Grape,
@@ -62,15 +62,20 @@ export default async function BottleDetailPage({ params }: Props) {
   if (!bottle) notFound();
 
   const drink = getDrinkStatus(currentYear, bottle.wine);
-  const drinkWindow = formatDrinkWindow(bottle.wine);
   const grapeNames = bottle.wine.grapes.map((g) => g.grape.name);
   const title = bottle.wine.producer || bottle.wine.name;
+  const heroUrl =
+    bottle.media.find((m) => m.kind === "etiquette")?.url ??
+    bottle.media[0]?.url ??
+    bottle.wine.media.find((m) => m.kind === "etiquette")?.url ??
+    bottle.wine.media[0]?.url ??
+    null;
 
   return (
     <div className="space-y-6">
       <div className="flex flex-wrap items-center justify-between gap-2">
         <Link
-          href="/"
+          href="/inventaire"
           className="inline-flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground"
         >
           <ArrowLeft className="h-4 w-4" />
@@ -79,7 +84,7 @@ export default async function BottleDetailPage({ params }: Props) {
         {canWrite && (
           <Link
             href={`/bouteilles/${bottle.id}/edit`}
-            className="inline-flex items-center gap-1.5 rounded-md border border-border px-3 py-1.5 text-sm font-medium text-foreground hover:bg-muted"
+            className="inline-flex items-center gap-1.5 rounded-xl border border-border bg-card px-3 py-1.5 text-sm font-medium text-foreground hover:bg-muted"
           >
             <Pencil className="h-3.5 w-3.5" />
             Modifier
@@ -87,53 +92,72 @@ export default async function BottleDetailPage({ params }: Props) {
         )}
       </div>
 
-      <div className="border-b border-border/50 pb-5">
-        <div className="flex items-start justify-between gap-4">
-          <div>
-            <div className="flex items-center gap-2">
-              <Wine className="h-5 w-5 text-primary/60" />
-              <h2 className="font-display text-2xl font-bold text-foreground">
-                {title}
-              </h2>
-            </div>
-            {bottle.wine.cuvee && (
-              <p className="mt-1 text-base text-muted-foreground">
-                Cuvée {bottle.wine.cuvee}
-              </p>
+      <div className="overflow-hidden rounded-2xl border border-border/70 bg-card shadow-sm">
+        <div className="grid gap-0 md:grid-cols-[200px_1fr]">
+          <div className="relative aspect-[3/4] bg-muted/40 md:aspect-auto md:min-h-[280px]">
+            {heroUrl ? (
+              // eslint-disable-next-line @next/next/no-img-element
+              <img
+                src={heroUrl}
+                alt=""
+                className="h-full w-full object-cover"
+              />
+            ) : (
+              <div className="flex h-full min-h-[200px] items-center justify-center text-primary/30">
+                <Wine className="h-16 w-16" />
+              </div>
             )}
-            <p className="mt-1.5 font-display text-lg text-muted-foreground">
-              {formatVintage(bottle.wine.vintage)}
-              {bottle.quantity > 1 ? ` · ×${bottle.quantity}` : ""}
-            </p>
-            <p className="mt-2 text-sm text-muted-foreground">
-              {formatWineSummary(bottle.wine)}
-            </p>
-            <div className="mt-2 flex flex-wrap items-center gap-3">
-              {bottle.wine.rating != null && (
-                <StarRating value={bottle.wine.rating} label="Moi" />
-              )}
-              {bottle.wine.externalRating != null && (
-                <StarRating
-                  value={bottle.wine.externalRating}
-                  label="Avis"
-                  tone="external"
-                />
-              )}
-            </div>
           </div>
-          <div className="flex flex-col items-end gap-2">
-            <StatusBadge status={drink.kind} />
-            <BottleStatusBadge status={bottle.status} />
+          <div className="flex flex-col justify-between p-5 sm:p-6">
+            <div>
+              <div className="flex flex-wrap items-start justify-between gap-3">
+                <div>
+                  <h2 className="font-display text-2xl font-bold text-foreground sm:text-3xl">
+                    {title}
+                  </h2>
+                  {bottle.wine.cuvee && (
+                    <p className="mt-1 text-base text-muted-foreground">
+                      Cuvée {bottle.wine.cuvee}
+                    </p>
+                  )}
+                  <p className="mt-1.5 font-display text-lg text-muted-foreground">
+                    {formatVintage(bottle.wine.vintage)}
+                    {bottle.quantity > 1 ? ` · ×${bottle.quantity}` : ""}
+                  </p>
+                </div>
+                <div className="flex flex-col items-end gap-2">
+                  <StatusBadge status={drink.kind} />
+                  <BottleStatusBadge status={bottle.status} />
+                </div>
+              </div>
+              <p className="mt-3 text-sm text-muted-foreground">
+                {formatWineSummary(bottle.wine)}
+              </p>
+              <div className="mt-3 flex flex-wrap items-center gap-3">
+                {bottle.wine.rating != null && (
+                  <StarRating value={bottle.wine.rating} label="Moi" />
+                )}
+                {bottle.wine.externalRating != null && (
+                  <StarRating
+                    value={bottle.wine.externalRating}
+                    label="Avis"
+                    tone="external"
+                  />
+                )}
+              </div>
+            </div>
+            <div className="mt-5 rounded-xl bg-muted/40 px-4 py-3 text-sm">
+              <span className="font-medium">{drink.label}</span>
+              <span className="text-muted-foreground">
+                {" "}
+                — {drink.description}
+              </span>
+            </div>
           </div>
         </div>
       </div>
 
-      <div className="rounded-lg border border-border/60 bg-muted/30 px-4 py-3 text-sm">
-        <span className="font-medium">{drink.label}</span>
-        <span className="text-muted-foreground"> — {drink.description}</span>
-      </div>
-
-      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+      <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
         <InfoCard
           icon={<Wine className="h-4 w-4" />}
           label="Type"
@@ -159,11 +183,6 @@ export default async function BottleDetailPage({ params }: Props) {
               ? `${bottle.wine.alcoholAbv} % vol.`
               : "—"
           }
-        />
-        <InfoCard
-          icon={<Calendar className="h-4 w-4" />}
-          label="Fenêtre de garde"
-          value={drinkWindow}
         />
         <InfoCard
           icon={<MapPin className="h-4 w-4" />}
@@ -231,39 +250,17 @@ export default async function BottleDetailPage({ params }: Props) {
         </div>
       )}
 
-      <div className="rounded-lg border border-border/60 bg-card px-5 py-4">
-        <h3 className="font-display text-base font-semibold">
-          Détail de la fenêtre
-        </h3>
-        <div className="mt-3 space-y-2 text-sm">
-          {(
-            [
-              ["Boire à partir de", bottle.wine.drinkFrom],
-              ["Début optimum", bottle.wine.peakStart],
-              ["Fin optimum", bottle.wine.peakEnd],
-              ["Boire avant", bottle.wine.drinkTo],
-            ] as const
-          ).map(([label, value]) => (
-            <div
-              key={label}
-              className="flex justify-between border-b border-border/30 pb-2"
-            >
-              <span className="text-muted-foreground">{label}</span>
-              <span
-                className={
-                  value === currentYear
-                    ? "font-semibold text-primary"
-                    : value < currentYear
-                      ? "text-muted-foreground line-through"
-                      : "font-medium"
-                }
-              >
-                {value}
-              </span>
-            </div>
-          ))}
-        </div>
-      </div>
+      <GardeCurve
+        wine={{
+          drinkFrom: bottle.wine.drinkFrom,
+          peakStart: bottle.wine.peakStart,
+          peakEnd: bottle.wine.peakEnd,
+          drinkTo: bottle.wine.drinkTo,
+          vintage: bottle.wine.vintage,
+        }}
+        currentYear={currentYear}
+        className="animate-fade-in-up"
+      />
 
       {bottle.wine.notes && (
         <div className="rounded-lg border border-border/60 bg-card px-5 py-4">
@@ -328,14 +325,14 @@ function InfoCard({
   value: string;
 }) {
   return (
-    <div className="rounded-lg border border-border/60 bg-card px-4 py-3">
+    <div className="rounded-2xl border border-border/60 bg-card px-4 py-3.5 shadow-sm">
       <div className="flex items-center gap-1.5 text-muted-foreground">
         {icon}
         <span className="text-xs font-medium uppercase tracking-wider">
           {label}
         </span>
       </div>
-      <p className="mt-1 text-sm font-medium text-foreground">{value}</p>
+      <p className="mt-1.5 text-sm font-medium text-foreground">{value}</p>
     </div>
   );
 }

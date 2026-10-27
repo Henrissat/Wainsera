@@ -55,7 +55,7 @@ export function BottleRow({
     <Link
       href={`/bouteilles/${bottle.id}`}
       className={cn(
-        "group block rounded-lg border border-border/60 bg-card px-4 py-3.5 transition-all hover:border-primary/30 hover:shadow-sm",
+        "group block rounded-2xl border border-border/60 bg-card px-4 py-3.5 transition-all hover:border-primary/35 hover:shadow-md hover:shadow-primary/5",
         "animate-fade-in-up",
         staggerClass,
       )}

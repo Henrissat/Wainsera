@@ -14,8 +14,14 @@ function isPublicPath(pathname: string): boolean {
     return true;
   }
 
-  // Lecture publique : inventaire, à boire, fiche bouteille
-  if (pathname === "/" || pathname.startsWith("/a-boire")) return true;
+  // Lecture publique : accueil, inventaire, à boire, fiche bouteille
+  if (
+    pathname === "/" ||
+    pathname.startsWith("/inventaire") ||
+    pathname.startsWith("/a-boire")
+  ) {
+    return true;
+  }
   if (
     pathname.startsWith("/bouteilles/") &&
     !pathname.includes("/edit")

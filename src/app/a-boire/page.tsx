@@ -193,8 +193,8 @@ export default async function ABoirePage() {
           description="Aucune bouteille n'est à son optimum ou en urgence. Vos vins vieillissent encore sagement."
           action={
             <Link
-              href="/"
-              className="inline-flex items-center gap-2 rounded-md bg-primary px-4 py-2.5 text-sm font-medium text-primary-foreground transition-colors hover:bg-primary/90"
+              href="/inventaire"
+              className="inline-flex items-center gap-2 rounded-xl bg-primary px-4 py-2.5 text-sm font-medium text-primary-foreground transition-colors hover:bg-primary/90"
             >
               Voir l&apos;inventaire
             </Link>
@@ -237,19 +237,19 @@ function Header({
             icon={<CheckCircle2 className="h-4 w-4" />}
             label="Optimum"
             count={counts.optimum}
-            color="text-emerald-700"
+            color="text-success"
           />
           <CountCard
             icon={<CalendarClock className="h-4 w-4" />}
             label="Urgent"
             count={counts.urgent}
-            color="text-amber-700"
+            color="text-warning"
           />
           <CountCard
             icon={<AlertTriangle className="h-4 w-4" />}
             label="Dépassé"
             count={counts.depasse}
-            color="text-rose-700"
+            color="text-destructive"
           />
         </div>
       )}
@@ -269,7 +269,7 @@ function CountCard({
   color: string;
 }) {
   return (
-    <div className="rounded-lg border border-border/60 bg-card px-3 py-2.5 text-center">
+    <div className="rounded-2xl border border-border/60 bg-card px-3 py-2.5 text-center shadow-sm">
       <div
         className={`inline-flex items-center gap-1 text-xs font-medium ${color}`}
       >

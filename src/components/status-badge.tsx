@@ -5,17 +5,22 @@ import { drinkStatusLabel } from "@/lib/drink-status";
 import { BOTTLE_STATUS_LABELS } from "@/lib/types";
 
 const DRINK_STATUS_STYLES: Record<DrinkWindowStatus, string> = {
-  TROP_JEUNE: "bg-blue-50 text-blue-700 ring-1 ring-blue-200",
-  PRET: "bg-emerald-50 text-emerald-700 ring-1 ring-emerald-200",
-  OPTIMUM: "bg-green-50 text-green-700 ring-1 ring-green-200",
-  URGENT: "bg-amber-50 text-amber-700 ring-1 ring-amber-200",
-  DEPASSE: "bg-red-50 text-red-700 ring-1 ring-red-200",
+  TROP_JEUNE:
+    "bg-sky-500/10 text-sky-700 ring-1 ring-sky-500/25 dark:text-sky-300",
+  PRET:
+    "bg-emerald-500/10 text-emerald-700 ring-1 ring-emerald-500/25 dark:text-emerald-300",
+  OPTIMUM:
+    "bg-success/15 text-success ring-1 ring-success/30",
+  URGENT:
+    "bg-warning/15 text-amber-800 ring-1 ring-warning/35 dark:text-amber-300",
+  DEPASSE:
+    "bg-destructive/10 text-destructive ring-1 ring-destructive/25",
 };
 
 const BOTTLE_STATUS_STYLES: Record<BottleStatus, string> = {
   EN_STOCK: "bg-primary/10 text-primary ring-1 ring-primary/20",
   BUE: "bg-muted text-muted-foreground ring-1 ring-border",
-  OFFERTE: "bg-accent/10 text-accent ring-1 ring-accent/20",
+  OFFERTE: "bg-accent/15 text-accent-foreground ring-1 ring-accent/25",
   PERDUE: "bg-destructive/10 text-destructive ring-1 ring-destructive/20",
 };
 
