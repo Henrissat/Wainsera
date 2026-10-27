@@ -10,7 +10,7 @@ import {
 import { BottleRow, type BottleRowData } from "@/components/bottle-row";
 import { EmptyState, ErrorState } from "@/components/empty-state";
 import { InventoryFilters } from "@/components/inventory-filters";
-import { Plus } from "lucide-react";
+import { FileUp, Plus } from "lucide-react";
 import type { WineType } from "@prisma/client";
 import { syncDrinkAlerts } from "@/lib/sync-alerts";
 import { getViewCaveUserId, getSessionUserId } from "@/lib/cave-user";
@@ -252,13 +252,22 @@ function HeroHeader({
         )}
       </div>
       {count !== null && canWrite && (
-        <Link
-          href="/ajouter"
-          className="inline-flex shrink-0 items-center gap-1.5 rounded-xl bg-primary px-3.5 py-2 text-sm font-medium text-primary-foreground transition-colors hover:bg-primary/90"
-        >
-          <Plus className="h-4 w-4" />
-          Ajouter
-        </Link>
+        <div className="flex shrink-0 flex-wrap items-center gap-2">
+          <Link
+            href="/importer"
+            className="inline-flex items-center gap-1.5 rounded-xl border border-border bg-card px-3.5 py-2 text-sm font-medium text-foreground hover:bg-muted"
+          >
+            <FileUp className="h-4 w-4" />
+            Importer
+          </Link>
+          <Link
+            href="/ajouter"
+            className="inline-flex items-center gap-1.5 rounded-xl bg-primary px-3.5 py-2 text-sm font-medium text-primary-foreground transition-colors hover:bg-primary/90"
+          >
+            <Plus className="h-4 w-4" />
+            Ajouter
+          </Link>
+        </div>
       )}
     </div>
   );
