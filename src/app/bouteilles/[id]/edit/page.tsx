@@ -118,6 +118,7 @@ export default async function EditBottlePage({ params }: Props) {
             merchantId: bottle.merchantId,
             purchaseNotes: bottle.purchaseNotes,
             rating: bottle.wine.rating,
+            externalRating: bottle.wine.externalRating,
             notes: bottle.wine.notes,
             scaleDouxAcide: bottle.wine.scaleDouxAcide,
             scaleSecMoelleux: bottle.wine.scaleSecMoelleux,

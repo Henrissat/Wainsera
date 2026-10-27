@@ -19,6 +19,7 @@ import {
   Bell,
 } from "lucide-react";
 import { getViewCaveUserId, getSessionUserId } from "@/lib/cave-user";
+import { pickThumbnailUrl } from "@/lib/media-thumb";
 
 export const dynamic = "force-dynamic";
 
@@ -50,9 +51,11 @@ export default async function ABoirePage() {
                 grapes: { include: { grape: true } },
                 region: true,
                 appellation: true,
+                media: { select: { url: true, kind: true }, take: 3 },
               },
             },
             location: true,
+            media: { select: { url: true, kind: true }, take: 3 },
           },
         }),
         prisma.drinkAlert.findMany({
@@ -79,6 +82,7 @@ export default async function ABoirePage() {
             quantity: b.quantity,
             format: b.format,
             purchasePrice: b.purchasePrice,
+            thumbnailUrl: pickThumbnailUrl(b.media, b.wine.media),
             wine: {
               name: b.wine.name,
               producer: b.wine.producer,
@@ -88,6 +92,7 @@ export default async function ABoirePage() {
               region: b.wine.region,
               appellation: b.wine.appellation,
               rating: b.wine.rating,
+              externalRating: b.wine.externalRating,
               grapes: b.wine.grapes,
             },
             location: {

@@ -10,9 +10,9 @@ import {
   getWineTypeLabel,
   getBottleFormatLabel,
   formatPrice,
-  formatRating,
   PROFILE_SCALES,
 } from "@/lib/types";
+import { StarRating } from "@/components/star-rating";
 import { formatWineSummary } from "@/lib/wine-label";
 import { ErrorState } from "@/components/empty-state";
 import BottleActions from "@/components/bottle-actions";
@@ -108,14 +108,18 @@ export default async function BottleDetailPage({ params }: Props) {
             <p className="mt-2 text-sm text-muted-foreground">
               {formatWineSummary(bottle.wine)}
             </p>
-            {bottle.wine.rating != null && (
-              <p className="mt-2 text-amber-600">
-                {formatRating(bottle.wine.rating)}{" "}
-                <span className="text-sm text-muted-foreground">
-                  {bottle.wine.rating}/5
-                </span>
-              </p>
-            )}
+            <div className="mt-2 flex flex-wrap items-center gap-3">
+              {bottle.wine.rating != null && (
+                <StarRating value={bottle.wine.rating} label="Moi" />
+              )}
+              {bottle.wine.externalRating != null && (
+                <StarRating
+                  value={bottle.wine.externalRating}
+                  label="Avis"
+                  tone="external"
+                />
+              )}
+            </div>
           </div>
           <div className="flex flex-col items-end gap-2">
             <StatusBadge status={drink.kind} />

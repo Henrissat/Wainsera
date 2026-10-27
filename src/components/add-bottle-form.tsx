@@ -4,7 +4,7 @@ import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { cn } from "@/lib/utils";
-import { Loader2, Info, Star, RefreshCw } from "lucide-react";
+import { Loader2, Info, RefreshCw } from "lucide-react";
 import { WINE_TYPES, BOTTLE_FORMATS, PROFILE_SCALES } from "@/lib/types";
 import { suggestDrinkWindow } from "@/lib/drink-window-defaults";
 
@@ -34,6 +34,7 @@ export type BottleFormInitial = {
   merchantId?: string | null;
   purchaseNotes?: string | null;
   rating?: number | null;
+  externalRating?: number | null;
   notes?: string | null;
   scaleDouxAcide?: number | null;
   scaleSecMoelleux?: number | null;
@@ -118,7 +119,16 @@ export function AddBottleForm({
   const [purchaseNotes, setPurchaseNotes] = useState(
     initial?.purchaseNotes ?? "",
   );
-  const [rating, setRating] = useState<number | null>(initial?.rating ?? null);
+  const [rating, setRating] = useState(
+    initial?.rating != null
+      ? String(initial.rating).replace(".", ",")
+      : "",
+  );
+  const [externalRating, setExternalRating] = useState(
+    initial?.externalRating != null
+      ? String(initial.externalRating).replace(".", ",")
+      : "",
+  );
   const [notes, setNotes] = useState(initial?.notes ?? "");
   const [scales, setScales] = useState<Record<string, number | null>>({
     scaleDouxAcide: initial?.scaleDouxAcide ?? null,
@@ -262,7 +272,8 @@ export function AddBottleForm({
         merchantId: merchantId || null,
         newMerchant: newMerchant.trim() || null,
         purchaseNotes: purchaseNotes.trim() || null,
-        rating,
+        rating: rating.trim() || null,
+        externalRating: externalRating.trim() || null,
         notes: notes.trim() || null,
         ...scales,
         drinkFrom: parseInt(drinkFrom, 10),
@@ -579,36 +590,42 @@ export function AddBottleForm({
 
       <section className="space-y-4">
         <h3 className="font-display text-base font-semibold">
-          Note & commentaire
+          Notes & commentaire
         </h3>
-        <div className="flex items-center gap-1">
-          {[0, 1, 2, 3, 4, 5].map((n) => (
-            <button
-              key={n}
-              type="button"
-              onClick={() => setRating(rating === n ? null : n)}
-              className={cn(
-                "rounded-md p-1.5",
-                rating != null && rating >= n && n > 0
-                  ? "text-amber-500"
-                  : "text-muted-foreground/40",
-              )}
-            >
-              {n === 0 ? (
-                <span className="px-1 text-xs">0</span>
-              ) : (
-                <Star
-                  className={cn(
-                    "h-6 w-6",
-                    rating != null && rating >= n && "fill-current",
-                  )}
-                />
-              )}
-            </button>
-          ))}
-          {rating != null && (
-            <span className="ml-2 text-sm text-muted-foreground">{rating}/5</span>
-          )}
+        <div className="grid gap-4 sm:grid-cols-2">
+          <div>
+            <label className="block text-sm font-medium">
+              Ma note (/5)
+            </label>
+            <input
+              type="text"
+              inputMode="decimal"
+              value={rating}
+              onChange={(e) => setRating(e.target.value)}
+              placeholder="ex. 4,3"
+              className={cn(field, "w-full")}
+            />
+            <p className="mt-1 text-xs text-muted-foreground">
+              Décimales OK (virgule ou point). Les étoiles s’arrondissent au
+              demi.
+            </p>
+          </div>
+          <div>
+            <label className="block text-sm font-medium">
+              Note avis / sites (/5)
+            </label>
+            <input
+              type="text"
+              inputMode="decimal"
+              value={externalRating}
+              onChange={(e) => setExternalRating(e.target.value)}
+              placeholder="ex. 3,8"
+              className={cn(field, "w-full")}
+            />
+            <p className="mt-1 text-xs text-muted-foreground">
+              Note trouvée sur un site, guide, caviste…
+            </p>
+          </div>
         </div>
         <textarea
           value={notes}

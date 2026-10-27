@@ -3,6 +3,7 @@ import { BottleStatus, WineType } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 import { parsePurchaseFields, resolveMerchantId } from "@/lib/purchase";
 import { requireUserId, unauthorized, notFound } from "@/lib/auth-utils";
+import { parseRatingInput } from "@/lib/rating";
 
 type Params = { params: Promise<{ id: string }> };
 
@@ -15,12 +16,6 @@ function parseOptionalInt(value: unknown): number | null {
 function parseScale(value: unknown): number | null {
   const n = parseOptionalInt(value);
   if (n == null || n < 1 || n > 5) return null;
-  return n;
-}
-
-function parseRating(value: unknown): number | null {
-  const n = parseOptionalInt(value);
-  if (n == null || n < 0 || n > 5) return null;
   return n;
 }
 
@@ -124,7 +119,8 @@ export async function PATCH(request: Request, { params }: Params) {
             peakStart,
             peakEnd,
             drinkTo,
-            rating: parseRating(body.rating),
+            rating: parseRatingInput(body.rating),
+            externalRating: parseRatingInput(body.externalRating),
             notes: body.notes ? String(body.notes).trim() : null,
             scaleDouxAcide: parseScale(body.scaleDouxAcide),
             scaleSecMoelleux: parseScale(body.scaleSecMoelleux),

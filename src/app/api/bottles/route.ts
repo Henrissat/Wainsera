@@ -4,6 +4,7 @@ import { prisma } from "@/lib/prisma";
 import { drinkStatus, drinkStatusLabel } from "@/lib/drink-status";
 import { parsePurchaseFields, resolveMerchantId } from "@/lib/purchase";
 import { requireUserId, unauthorized, notFound } from "@/lib/auth-utils";
+import { parseRatingInput } from "@/lib/rating";
 
 function parseOptionalInt(value: unknown): number | null {
   if (value === "" || value == null) return null;
@@ -14,12 +15,6 @@ function parseOptionalInt(value: unknown): number | null {
 function parseScale(value: unknown): number | null {
   const n = parseOptionalInt(value);
   if (n == null || n < 1 || n > 5) return null;
-  return n;
-}
-
-function parseRating(value: unknown): number | null {
-  const n = parseOptionalInt(value);
-  if (n == null || n < 0 || n > 5) return null;
   return n;
 }
 
@@ -85,7 +80,8 @@ export async function POST(request: Request) {
       ? null
       : Number(body.alcoholAbv);
   const quantity = Math.max(1, parseOptionalInt(body.quantity) ?? 1);
-  const rating = parseRating(body.rating);
+  const rating = parseRatingInput(body.rating);
+  const externalRating = parseRatingInput(body.externalRating);
   const scaleDouxAcide = parseScale(body.scaleDouxAcide);
   const scaleSecMoelleux = parseScale(body.scaleSecMoelleux);
   const scaleSoupleTannique = parseScale(body.scaleSoupleTannique);
@@ -193,6 +189,7 @@ export async function POST(request: Request) {
           peakEnd,
           drinkTo,
           rating,
+          externalRating,
           notes: notes || null,
           scaleDouxAcide,
           scaleSecMoelleux,

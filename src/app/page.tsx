@@ -14,6 +14,7 @@ import { Plus } from "lucide-react";
 import type { WineType } from "@prisma/client";
 import { syncDrinkAlerts } from "@/lib/sync-alerts";
 import { getViewCaveUserId, getSessionUserId } from "@/lib/cave-user";
+import { pickThumbnailUrl } from "@/lib/media-thumb";
 
 export const dynamic = "force-dynamic";
 
@@ -69,9 +70,11 @@ export default async function HomePage({
                 grapes: { include: { grape: true } },
                 region: true,
                 appellation: true,
+                media: { select: { url: true, kind: true }, take: 3 },
               },
             },
             location: true,
+            media: { select: { url: true, kind: true }, take: 3 },
           },
         }),
         prisma.region.findMany({
@@ -101,6 +104,7 @@ export default async function HomePage({
           quantity: b.quantity,
           format: b.format,
           purchasePrice: b.purchasePrice,
+          thumbnailUrl: pickThumbnailUrl(b.media, b.wine.media),
           wine: {
             name: b.wine.name,
             producer: b.wine.producer,
@@ -110,6 +114,7 @@ export default async function HomePage({
             region: b.wine.region,
             appellation: b.wine.appellation,
             rating: b.wine.rating,
+            externalRating: b.wine.externalRating,
             grapes: b.wine.grapes,
           },
           location: {

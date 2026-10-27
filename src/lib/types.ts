@@ -101,7 +101,4 @@ export function formatVintage(vintage: number | null): string {
   return vintage == null ? "NV" : String(vintage);
 }
 
-export function formatRating(rating: number | null | undefined): string {
-  if (rating == null) return "—";
-  return "★".repeat(rating) + "☆".repeat(Math.max(0, 5 - rating));
-}
+export { formatRatingValue as formatRating } from "./rating";

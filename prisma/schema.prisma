@@ -154,7 +154,10 @@ model Wine {
   peakEnd   Int
   drinkTo   Int
 
-  rating Int?
+  /// Note personnelle (0–5, décimales OK)
+  rating Float?
+  /// Note avis externe / sites (0–5, décimales OK)
+  externalRating Float?
   notes  String?
 
   scaleDouxAcide      Int?
