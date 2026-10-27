@@ -45,13 +45,12 @@ export default async function RootLayout({
       className={`${playfair.variable} ${sourceSans.variable} h-full`}
     >
       <body className="font-sans paper-texture min-h-full flex flex-col">
-        {session?.user && (
-          <Navbar
-            unreadAlerts={unreadAlerts}
-            userEmail={session.user.email}
-            userName={session.user.name}
-          />
-        )}
+        <Navbar
+          unreadAlerts={unreadAlerts}
+          userEmail={session?.user?.email}
+          userName={session?.user?.name}
+          isLoggedIn={!!session?.user}
+        />
         <main className="mx-auto w-full max-w-3xl flex-1 px-4 pb-24 pt-6 sm:px-6 lg:max-w-4xl">
           {children}
         </main>

@@ -18,15 +18,13 @@ import {
   CheckCircle2,
   Bell,
 } from "lucide-react";
-import { auth } from "@/auth";
-import { redirect } from "next/navigation";
+import { getViewCaveUserId, getSessionUserId } from "@/lib/cave-user";
 
 export const dynamic = "force-dynamic";
 
 export default async function ABoirePage() {
-  const session = await auth();
-  if (!session?.user?.id) redirect("/login");
-  const userId = session.user.id;
+  const userId = await getViewCaveUserId();
+  const canWrite = !!(await getSessionUserId());
   const currentYear = new Date().getFullYear();
 
   let bottles: BottleRowData[] = [];
@@ -40,80 +38,82 @@ export default async function ABoirePage() {
   let dbError = false;
 
   try {
-    await syncDrinkAlerts(userId, currentYear);
+    if (userId) {
+      await syncDrinkAlerts(userId, currentYear);
 
-    const [rawBottles, rawAlerts] = await Promise.all([
-      prisma.bottle.findMany({
-        where: { userId, status: "EN_STOCK" },
-        include: {
-          wine: {
-            include: {
-              grapes: { include: { grape: true } },
-              region: true,
-              appellation: true,
+      const [rawBottles, rawAlerts] = await Promise.all([
+        prisma.bottle.findMany({
+          where: { userId, status: "EN_STOCK" },
+          include: {
+            wine: {
+              include: {
+                grapes: { include: { grape: true } },
+                region: true,
+                appellation: true,
+              },
             },
+            location: true,
           },
-          location: true,
-        },
-      }),
-      prisma.drinkAlert.findMany({
-        where: {
-          forYear: currentYear,
-          wine: { userId },
-          bottle: { status: "EN_STOCK", quantity: { gt: 0 }, userId },
-        },
-        include: {
-          wine: { select: { name: true, producer: true, vintage: true } },
-        },
-        orderBy: [{ readAt: "asc" }, { sentAt: "desc" }],
-        take: 20,
-      }),
-    ]);
+        }),
+        prisma.drinkAlert.findMany({
+          where: {
+            forYear: currentYear,
+            wine: { userId },
+            bottle: { status: "EN_STOCK", quantity: { gt: 0 }, userId },
+          },
+          include: {
+            wine: { select: { name: true, producer: true, vintage: true } },
+          },
+          orderBy: [{ readAt: "asc" }, { sentAt: "desc" }],
+          take: 20,
+        }),
+      ]);
 
-    alerts = rawAlerts;
+      alerts = rawAlerts;
 
-    bottles = rawBottles
-      .map((b) => {
-        const status = getDrinkStatus(currentYear, b.wine);
-        return {
-          id: b.id,
-          quantity: b.quantity,
-          format: b.format,
-          purchasePrice: b.purchasePrice,
-          wine: {
-            name: b.wine.name,
-            producer: b.wine.producer,
-            cuvee: b.wine.cuvee,
-            vintage: b.wine.vintage,
-            wineType: b.wine.wineType,
-            region: b.wine.region,
-            appellation: b.wine.appellation,
-            rating: b.wine.rating,
-            grapes: b.wine.grapes,
-          },
-          location: {
-            name: b.location.name,
-            type: b.location.type,
-          },
-          drinkWindow: formatDrinkWindow(b.wine),
-          drinkStatus: status,
-        };
-      })
-      .filter(
-        (b) =>
-          b.drinkStatus.kind === "OPTIMUM" ||
-          b.drinkStatus.kind === "URGENT" ||
-          b.drinkStatus.kind === "DEPASSE",
-      )
-      .sort((a, b) => {
-        const orderDiff =
-          DRINK_STATUS_ORDER[a.drinkStatus.kind] -
-          DRINK_STATUS_ORDER[b.drinkStatus.kind];
-        if (orderDiff !== 0) return orderDiff;
-        const va = a.wine.vintage ?? 9999;
-        const vb = b.wine.vintage ?? 9999;
-        return va - vb;
-      });
+      bottles = rawBottles
+        .map((b) => {
+          const status = getDrinkStatus(currentYear, b.wine);
+          return {
+            id: b.id,
+            quantity: b.quantity,
+            format: b.format,
+            purchasePrice: b.purchasePrice,
+            wine: {
+              name: b.wine.name,
+              producer: b.wine.producer,
+              cuvee: b.wine.cuvee,
+              vintage: b.wine.vintage,
+              wineType: b.wine.wineType,
+              region: b.wine.region,
+              appellation: b.wine.appellation,
+              rating: b.wine.rating,
+              grapes: b.wine.grapes,
+            },
+            location: {
+              name: b.location.name,
+              type: b.location.type,
+            },
+            drinkWindow: formatDrinkWindow(b.wine),
+            drinkStatus: status,
+          };
+        })
+        .filter(
+          (b) =>
+            b.drinkStatus.kind === "OPTIMUM" ||
+            b.drinkStatus.kind === "URGENT" ||
+            b.drinkStatus.kind === "DEPASSE",
+        )
+        .sort((a, b) => {
+          const orderDiff =
+            DRINK_STATUS_ORDER[a.drinkStatus.kind] -
+            DRINK_STATUS_ORDER[b.drinkStatus.kind];
+          if (orderDiff !== 0) return orderDiff;
+          const va = a.wine.vintage ?? 9999;
+          const vb = b.wine.vintage ?? 9999;
+          return va - vb;
+        });
+    }
   } catch {
     dbError = true;
   }
@@ -177,7 +177,7 @@ export default async function ABoirePage() {
                 </ul>
               </div>
             </div>
-            <MarkAlertsReadButton />
+            {canWrite && <MarkAlertsReadButton />}
           </div>
         </div>
       )}

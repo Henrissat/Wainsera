@@ -1,8 +1,8 @@
 import Link from "next/link";
-import { notFound, redirect } from "next/navigation";
+import { notFound } from "next/navigation";
 import { prisma } from "@/lib/prisma";
-import { auth } from "@/auth";
 import { getDrinkStatus, formatDrinkWindow } from "@/lib/drink-status";
+import { getViewCaveUserId, getSessionUserId } from "@/lib/cave-user";
 import { StatusBadge, BottleStatusBadge } from "@/components/status-badge";
 import {
   formatVintage,
@@ -34,9 +34,9 @@ export const dynamic = "force-dynamic";
 type Props = { params: Promise<{ id: string }> };
 
 export default async function BottleDetailPage({ params }: Props) {
-  const session = await auth();
-  if (!session?.user?.id) redirect("/login");
-  const userId = session.user.id;
+  const userId = await getViewCaveUserId();
+  const sessionUserId = await getSessionUserId();
+  const canWrite = !!sessionUserId && sessionUserId === userId;
 
   const { id } = await params;
   const currentYear = new Date().getFullYear();
@@ -45,7 +45,7 @@ export default async function BottleDetailPage({ params }: Props) {
   let dbError = false;
 
   try {
-    bottle = await loadBottle(id, userId);
+    if (userId) bottle = await loadBottle(id, userId);
   } catch {
     dbError = true;
   }
@@ -76,13 +76,15 @@ export default async function BottleDetailPage({ params }: Props) {
           <ArrowLeft className="h-4 w-4" />
           Retour à l&apos;inventaire
         </Link>
-        <Link
-          href={`/bouteilles/${bottle.id}/edit`}
-          className="inline-flex items-center gap-1.5 rounded-md border border-border px-3 py-1.5 text-sm font-medium text-foreground hover:bg-muted"
-        >
-          <Pencil className="h-3.5 w-3.5" />
-          Modifier
-        </Link>
+        {canWrite && (
+          <Link
+            href={`/bouteilles/${bottle.id}/edit`}
+            className="inline-flex items-center gap-1.5 rounded-md border border-border px-3 py-1.5 text-sm font-medium text-foreground hover:bg-muted"
+          >
+            <Pencil className="h-3.5 w-3.5" />
+            Modifier
+          </Link>
+        )}
       </div>
 
       <div className="border-b border-border/50 pb-5">
@@ -274,6 +276,7 @@ export default async function BottleDetailPage({ params }: Props) {
       <BottlePhotos
         bottleId={bottle.id}
         wineId={bottle.wine.id}
+        canEdit={canWrite}
         media={[
           ...bottle.media,
           ...bottle.wine.media.filter(
@@ -282,7 +285,7 @@ export default async function BottleDetailPage({ params }: Props) {
         ]}
       />
 
-      {bottle.status === "EN_STOCK" && (
+      {canWrite && bottle.status === "EN_STOCK" && (
         <div className="rounded-lg border border-border/60 bg-card px-5 py-4">
           <h3 className="font-display text-base font-semibold">Actions</h3>
           <BottleActions bottleId={bottle.id} quantity={bottle.quantity} />

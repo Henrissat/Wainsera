@@ -32,10 +32,12 @@ export function BottlePhotos({
   bottleId,
   wineId,
   media,
+  canEdit = true,
 }: {
   bottleId: string;
   wineId: string;
   media: MediaItem[];
+  canEdit?: boolean;
 }) {
   const router = useRouter();
   const fileRef = useRef<HTMLInputElement>(null);
@@ -175,15 +177,17 @@ export function BottlePhotos({
                   >
                     <ExternalLink className="h-3.5 w-3.5" />
                   </a>
-                  <button
-                    type="button"
-                    onClick={() => onDelete(m.id)}
-                    disabled={deleting === m.id}
-                    className="rounded bg-white/20 p-1 text-white hover:bg-rose-500/80"
-                    title="Supprimer"
-                  >
-                    <Trash2 className="h-3.5 w-3.5" />
-                  </button>
+                  {canEdit && (
+                    <button
+                      type="button"
+                      onClick={() => onDelete(m.id)}
+                      disabled={deleting === m.id}
+                      className="rounded bg-white/20 p-1 text-white hover:bg-rose-500/80"
+                      title="Supprimer"
+                    >
+                      <Trash2 className="h-3.5 w-3.5" />
+                    </button>
+                  )}
                 </div>
               </div>
             </li>
@@ -195,6 +199,7 @@ export function BottlePhotos({
         </div>
       )}
 
+      {canEdit && (
       <div className="mt-4 space-y-3 border-t border-border/50 pt-4">
         <div>
           <label className="text-sm font-medium">Type</label>
@@ -295,6 +300,7 @@ export function BottlePhotos({
 
         {error && <p className="text-sm text-destructive">{error}</p>}
       </div>
+      )}
     </div>
   );
 }

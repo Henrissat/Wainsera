@@ -13,8 +13,7 @@ import { InventoryFilters } from "@/components/inventory-filters";
 import { Plus } from "lucide-react";
 import type { WineType } from "@prisma/client";
 import { syncDrinkAlerts } from "@/lib/sync-alerts";
-import { auth } from "@/auth";
-import { redirect } from "next/navigation";
+import { getViewCaveUserId, getSessionUserId } from "@/lib/cave-user";
 
 export const dynamic = "force-dynamic";
 
@@ -25,9 +24,8 @@ export default async function HomePage({
 }: {
   searchParams: SearchParams;
 }) {
-  const session = await auth();
-  if (!session?.user?.id) redirect("/login");
-  const userId = session.user.id;
+  const userId = await getViewCaveUserId();
+  const canWrite = !!(await getSessionUserId());
 
   const sp = await searchParams;
   const q = String(sp.q ?? "").trim().toLowerCase();
@@ -48,47 +46,48 @@ export default async function HomePage({
   let totalQty = 0;
 
   try {
-    await syncDrinkAlerts(userId, currentYear);
+    if (userId) {
+      await syncDrinkAlerts(userId, currentYear);
 
-    const [rawBottles, regions, grapes, locations] = await Promise.all([
-      prisma.bottle.findMany({
-        where: {
-          userId,
-          status: "EN_STOCK",
-          ...(location ? { locationId: location } : {}),
-          wine: {
-            ...(type ? { wineType: type } : {}),
-            ...(region ? { regionId: region } : {}),
-            ...(grape
-              ? { grapes: { some: { grapeId: grape } } }
-              : {}),
-          },
-        },
-        include: {
-          wine: {
-            include: {
-              grapes: { include: { grape: true } },
-              region: true,
-              appellation: true,
+      const [rawBottles, regions, grapes, locations] = await Promise.all([
+        prisma.bottle.findMany({
+          where: {
+            userId,
+            status: "EN_STOCK",
+            ...(location ? { locationId: location } : {}),
+            wine: {
+              ...(type ? { wineType: type } : {}),
+              ...(region ? { regionId: region } : {}),
+              ...(grape
+                ? { grapes: { some: { grapeId: grape } } }
+                : {}),
             },
           },
-          location: true,
-        },
-      }),
-      prisma.region.findMany({
-        orderBy: { name: "asc" },
-        select: { id: true, name: true },
-      }),
-      prisma.grape.findMany({
-        orderBy: { name: "asc" },
-        select: { id: true, name: true },
-      }),
-      prisma.location.findMany({
-        where: { userId },
-        orderBy: { name: "asc" },
-        select: { id: true, name: true },
-      }),
-    ]);
+          include: {
+            wine: {
+              include: {
+                grapes: { include: { grape: true } },
+                region: true,
+                appellation: true,
+              },
+            },
+            location: true,
+          },
+        }),
+        prisma.region.findMany({
+          orderBy: { name: "asc" },
+          select: { id: true, name: true },
+        }),
+        prisma.grape.findMany({
+          orderBy: { name: "asc" },
+          select: { id: true, name: true },
+        }),
+        prisma.location.findMany({
+          where: { userId },
+          orderBy: { name: "asc" },
+          select: { id: true, name: true },
+        }),
+      ]);
 
     filterRegions = regions;
     filterGrapes = grapes;
@@ -158,7 +157,8 @@ export default async function HomePage({
       return (a.wine.vintage ?? 9999) - (b.wine.vintage ?? 9999);
     });
 
-    totalQty = bottles.reduce((sum, b) => sum + (b.quantity ?? 1), 0);
+      totalQty = bottles.reduce((sum, b) => sum + (b.quantity ?? 1), 0);
+    }
   } catch {
     dbError = true;
   }
@@ -166,7 +166,7 @@ export default async function HomePage({
   if (dbError) {
     return (
       <div className="space-y-6">
-        <HeroHeader count={null} qty={null} />
+        <HeroHeader count={null} qty={null} canWrite={canWrite} />
         <ErrorState
           title="Cave inaccessible"
           description="Vérifie DATABASE_URL dans .env (compte Neon), puis lance npm run db:push."
@@ -177,7 +177,7 @@ export default async function HomePage({
 
   return (
     <div className="space-y-6">
-      <HeroHeader count={bottles.length} qty={totalQty} />
+      <HeroHeader count={bottles.length} qty={totalQty} canWrite={canWrite} />
 
       <Suspense fallback={null}>
         <InventoryFilters
@@ -192,13 +192,22 @@ export default async function HomePage({
           title="Aucun résultat"
           description="Aucune bouteille ne correspond aux filtres — ou la cave est vide."
           action={
-            <Link
-              href="/ajouter"
-              className="inline-flex items-center gap-2 rounded-md bg-primary px-4 py-2.5 text-sm font-medium text-primary-foreground transition-colors hover:bg-primary/90"
-            >
-              <Plus className="h-4 w-4" />
-              Ajouter une bouteille
-            </Link>
+            canWrite ? (
+              <Link
+                href="/ajouter"
+                className="inline-flex items-center gap-2 rounded-md bg-primary px-4 py-2.5 text-sm font-medium text-primary-foreground transition-colors hover:bg-primary/90"
+              >
+                <Plus className="h-4 w-4" />
+                Ajouter une bouteille
+              </Link>
+            ) : (
+              <Link
+                href="/login"
+                className="inline-flex items-center gap-2 rounded-md border border-border px-4 py-2.5 text-sm font-medium hover:bg-muted/40"
+              >
+                Se connecter pour gérer la cave
+              </Link>
+            )
           }
         />
       ) : (
@@ -215,9 +224,11 @@ export default async function HomePage({
 function HeroHeader({
   count,
   qty,
+  canWrite,
 }: {
   count: number | null;
   qty: number | null;
+  canWrite?: boolean;
 }) {
   return (
     <div className="flex items-end justify-between gap-4 border-b border-border/50 pb-5">
@@ -235,7 +246,7 @@ function HeroHeader({
           </p>
         )}
       </div>
-      {count !== null && (
+      {count !== null && canWrite && (
         <Link
           href="/ajouter"
           className="inline-flex shrink-0 items-center gap-1.5 rounded-md bg-primary px-3.5 py-2 text-sm font-medium text-primary-foreground transition-colors hover:bg-primary/90"

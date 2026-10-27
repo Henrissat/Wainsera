@@ -4,25 +4,37 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { signOut } from "next-auth/react";
 import { cn } from "@/lib/utils";
-import { Wine, Home, CalendarClock, MapPin, Plus, LogOut } from "lucide-react";
-
-const navItems = [
-  { href: "/", label: "Inventaire", icon: Home },
-  { href: "/a-boire", label: "À boire", icon: CalendarClock },
-  { href: "/emplacements", label: "Emplacements", icon: MapPin },
-];
+import {
+  Wine,
+  Home,
+  CalendarClock,
+  MapPin,
+  Plus,
+  LogOut,
+  LogIn,
+} from "lucide-react";
 
 export function Navbar({
   unreadAlerts = 0,
   userEmail,
   userName,
+  isLoggedIn = false,
 }: {
   unreadAlerts?: number;
   userEmail?: string | null;
   userName?: string | null;
+  isLoggedIn?: boolean;
 }) {
   const pathname = usePathname();
   const label = userName || userEmail || "";
+
+  const navItems = [
+    { href: "/", label: "Inventaire", icon: Home },
+    { href: "/a-boire", label: "À boire", icon: CalendarClock },
+    ...(isLoggedIn
+      ? [{ href: "/emplacements", label: "Emplacements", icon: MapPin }]
+      : []),
+  ];
 
   return (
     <>
@@ -51,7 +63,9 @@ export function Navbar({
                     : pathname.startsWith(item.href);
                 const Icon = item.icon;
                 const showBadge =
-                  item.href === "/a-boire" && unreadAlerts > 0;
+                  isLoggedIn &&
+                  item.href === "/a-boire" &&
+                  unreadAlerts > 0;
                 return (
                   <Link
                     key={item.href}
@@ -73,29 +87,41 @@ export function Navbar({
                   </Link>
                 );
               })}
-              <Link
-                href="/ajouter"
-                className="ml-2 inline-flex items-center gap-1.5 rounded-md bg-primary px-3.5 py-2 text-sm font-medium text-primary-foreground transition-colors hover:bg-primary/90"
-              >
-                <Plus className="h-4 w-4" />
-                Ajouter
-              </Link>
-              {label && (
-                <span
-                  className="ml-2 max-w-[140px] truncate text-xs text-muted-foreground"
-                  title={userEmail ?? undefined}
+              {isLoggedIn ? (
+                <>
+                  <Link
+                    href="/ajouter"
+                    className="ml-2 inline-flex items-center gap-1.5 rounded-md bg-primary px-3.5 py-2 text-sm font-medium text-primary-foreground transition-colors hover:bg-primary/90"
+                  >
+                    <Plus className="h-4 w-4" />
+                    Ajouter
+                  </Link>
+                  {label && (
+                    <span
+                      className="ml-2 max-w-[140px] truncate text-xs text-muted-foreground"
+                      title={userEmail ?? undefined}
+                    >
+                      {label}
+                    </span>
+                  )}
+                  <button
+                    type="button"
+                    onClick={() => signOut({ callbackUrl: "/" })}
+                    className="inline-flex items-center gap-1 rounded-md px-2 py-2 text-sm text-muted-foreground hover:bg-muted hover:text-foreground"
+                    title="Déconnexion"
+                  >
+                    <LogOut className="h-4 w-4" />
+                  </button>
+                </>
+              ) : (
+                <Link
+                  href="/login"
+                  className="ml-2 inline-flex items-center gap-1.5 rounded-md border border-border px-3.5 py-2 text-sm font-medium hover:bg-muted/40"
                 >
-                  {label}
-                </span>
+                  <LogIn className="h-4 w-4" />
+                  Connexion
+                </Link>
               )}
-              <button
-                type="button"
-                onClick={() => signOut({ callbackUrl: "/login" })}
-                className="inline-flex items-center gap-1 rounded-md px-2 py-2 text-sm text-muted-foreground hover:bg-muted hover:text-foreground"
-                title="Déconnexion"
-              >
-                <LogOut className="h-4 w-4" />
-              </button>
             </nav>
           </div>
         </div>
@@ -109,7 +135,8 @@ export function Navbar({
                 ? pathname === "/"
                 : pathname.startsWith(item.href);
             const Icon = item.icon;
-            const showBadge = item.href === "/a-boire" && unreadAlerts > 0;
+            const showBadge =
+              isLoggedIn && item.href === "/a-boire" && unreadAlerts > 0;
             return (
               <Link
                 key={item.href}
@@ -127,23 +154,35 @@ export function Navbar({
               </Link>
             );
           })}
-          <Link
-            href="/ajouter"
-            className="flex flex-col items-center gap-0.5 rounded-md px-3 py-1.5 text-xs font-medium text-primary transition-colors"
-          >
-            <span className="flex h-5 w-5 items-center justify-center rounded-full bg-primary text-primary-foreground">
-              <Plus className="h-3.5 w-3.5" />
-            </span>
-            Ajouter
-          </Link>
-          <button
-            type="button"
-            onClick={() => signOut({ callbackUrl: "/login" })}
-            className="flex flex-col items-center gap-0.5 rounded-md px-3 py-1.5 text-xs font-medium text-muted-foreground"
-          >
-            <LogOut className="h-5 w-5" />
-            Sortir
-          </button>
+          {isLoggedIn ? (
+            <>
+              <Link
+                href="/ajouter"
+                className="flex flex-col items-center gap-0.5 rounded-md px-3 py-1.5 text-xs font-medium text-primary transition-colors"
+              >
+                <span className="flex h-5 w-5 items-center justify-center rounded-full bg-primary text-primary-foreground">
+                  <Plus className="h-3.5 w-3.5" />
+                </span>
+                Ajouter
+              </Link>
+              <button
+                type="button"
+                onClick={() => signOut({ callbackUrl: "/" })}
+                className="flex flex-col items-center gap-0.5 rounded-md px-3 py-1.5 text-xs font-medium text-muted-foreground"
+              >
+                <LogOut className="h-5 w-5" />
+                Sortir
+              </button>
+            </>
+          ) : (
+            <Link
+              href="/login"
+              className="flex flex-col items-center gap-0.5 rounded-md px-3 py-1.5 text-xs font-medium text-primary"
+            >
+              <LogIn className="h-5 w-5" />
+              Connexion
+            </Link>
+          )}
         </div>
       </nav>
     </>
