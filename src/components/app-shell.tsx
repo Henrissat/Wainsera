@@ -14,6 +14,7 @@ import {
   Plus,
   LogOut,
   LogIn,
+  FileUp,
 } from "lucide-react";
 
 type NavItem = {
@@ -51,7 +52,10 @@ export function AppShell({
       badge: isLoggedIn && unreadAlerts > 0 ? unreadAlerts : undefined,
     },
     ...(isLoggedIn
-      ? [{ href: "/emplacements", label: "Emplacements", icon: MapPin }]
+      ? [
+          { href: "/emplacements", label: "Emplacements", icon: MapPin },
+          { href: "/importer", label: "Importer", icon: FileUp },
+        ]
       : []),
   ];
 
@@ -165,7 +169,19 @@ export function AppShell({
               Wainsera
             </span>
           </Link>
-          <ThemeToggle />
+          <div className="flex items-center gap-1">
+            {isLoggedIn && (
+              <Link
+                href="/importer"
+                className="inline-flex items-center gap-1 rounded-lg px-2 py-1.5 text-xs font-medium text-muted-foreground hover:bg-muted hover:text-foreground"
+                aria-label="Importer"
+              >
+                <FileUp className="h-4 w-4" />
+                Import
+              </Link>
+            )}
+            <ThemeToggle />
+          </div>
         </header>
 
         <main className="mx-auto w-full max-w-6xl flex-1 px-4 pb-28 pt-5 sm:px-6 lg:px-8 lg:pb-8">
@@ -211,7 +227,10 @@ export function AppShell({
               </Link>
             )}
 
-            {navItems.slice(2).map((item) => {
+            {navItems
+              .slice(2)
+              .filter((item) => item.href !== "/importer")
+              .map((item) => {
               const Icon = item.icon;
               const active = isActive(item.href);
               return (

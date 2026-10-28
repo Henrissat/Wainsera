@@ -251,7 +251,7 @@ function HeroHeader({
           </p>
         )}
       </div>
-      {count !== null && canWrite && (
+      {canWrite && (
         <div className="flex shrink-0 flex-wrap items-center gap-2">
           <Link
             href="/importer"
