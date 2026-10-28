@@ -24,6 +24,8 @@ export type ImportField =
   | "rating"
   | "externalRating"
   | "notes"
+  | "profile"
+  | "conservation"
   | "drinkFrom"
   | "peakStart"
   | "peakEnd"
@@ -39,7 +41,7 @@ const HEADER_ALIASES: Record<string, ImportField> = {
   domaine_chateau: "producer",
   proprietaire: "producer",
   maison: "producer",
-  // Cuvée / nom
+  // Cuvée / nom (dans beaucoup d’exports « Cuvee » = nom du vin)
   cuvee: "cuvee",
   cuvee_nom: "cuvee",
   name: "name",
@@ -49,15 +51,17 @@ const HEADER_ALIASES: Record<string, ImportField> = {
   vintage: "vintage",
   millesime: "vintage",
   annee: "vintage",
-  // Type
+  // Couleur / type (Rouge, Blanc…) — PAS le profil de dégustation
   winetype: "wineType",
   wine_type: "wineType",
   type: "wineType",
-  type_vin: "wineType",
   couleur: "wineType",
   // Région / appellation
   region: "region",
   region_viticole: "region",
+  region_pays: "region",
+  regionpays: "region",
+  pays: "region",
   appellation: "appellation",
   aoc: "appellation",
   aop: "appellation",
@@ -78,6 +82,7 @@ const HEADER_ALIASES: Record<string, ImportField> = {
   // Emplacement
   location: "location",
   emplacement: "location",
+  rangement: "location",
   cave: "location",
   lieu: "location",
   locationtype: "locationType",
@@ -100,7 +105,8 @@ const HEADER_ALIASES: Record<string, ImportField> = {
   purchasenotes: "purchaseNotes",
   purchase_notes: "purchaseNotes",
   note_achat: "purchaseNotes",
-  // Notes
+  origine: "purchaseNotes",
+  // Notes / scores
   rating: "rating",
   note: "rating",
   note_perso: "rating",
@@ -108,11 +114,22 @@ const HEADER_ALIASES: Record<string, ImportField> = {
   externalrating: "externalRating",
   external_rating: "externalRating",
   note_externe: "externalRating",
+  note_web: "externalRating",
   avis: "externalRating",
   notes: "notes",
   commentaire: "notes",
   comment: "notes",
-  // Garde
+  bouche: "notes",
+  // Profil dégustation (ex. « Puissant, tannique… ») ≠ type Rouge/Blanc
+  profil: "profile",
+  profile: "profile",
+  type_de_vin: "profile",
+  type_vin: "profile",
+  // Durée de garde libre (« 8-10 ans »)
+  conservation: "conservation",
+  garde: "conservation",
+  duree_garde: "conservation",
+  // Garde (années calendaires)
   drinkfrom: "drinkFrom",
   drink_from: "drinkFrom",
   pret_a_partir: "drinkFrom",
@@ -180,6 +197,10 @@ export type MappedImportRow = {
   rating: number | null;
   externalRating: number | null;
   notes: string | null;
+  scaleDouxAcide: number | null;
+  scaleSecMoelleux: number | null;
+  scaleSoupleTannique: number | null;
+  scaleLegerPuissant: number | null;
   drinkFrom: number;
   peakStart: number;
   peakEnd: number;
@@ -361,7 +382,115 @@ function splitGrapes(value: string): string[] {
   return value
     .split(/[,;/|]+/)
     .map((g) => g.trim())
-    .filter(Boolean);
+    .filter((g) => g && !/^assemblage$/i.test(g));
+}
+
+/** « 8-10 ans », « 5 à 8 ans », « 12 ans » → borne max (et min si plage). */
+export function parseConservationYears(
+  value: string,
+): { min: number; max: number } | null {
+  const raw = stripAccents(value).toLowerCase();
+  if (!raw.trim()) return null;
+  const range = raw.match(/(\d+)\s*(?:-|–|a|à|\/)\s*(\d+)/);
+  if (range) {
+    const a = Number(range[1]);
+    const b = Number(range[2]);
+    if (!Number.isNaN(a) && !Number.isNaN(b)) {
+      return { min: Math.min(a, b), max: Math.max(a, b) };
+    }
+  }
+  const single = raw.match(/(\d+)\s*ans?/);
+  if (single) {
+    const n = Number(single[1]);
+    if (!Number.isNaN(n) && n > 0) return { min: Math.max(1, n - 2), max: n };
+  }
+  return null;
+}
+
+/** Profil libre → échelles 1–5 (best effort). */
+export function parseProfileScales(value: string): {
+  scaleDouxAcide: number | null;
+  scaleSecMoelleux: number | null;
+  scaleSoupleTannique: number | null;
+  scaleLegerPuissant: number | null;
+} {
+  const n = stripAccents(value).toLowerCase();
+  if (!n.trim()) {
+    return {
+      scaleDouxAcide: null,
+      scaleSecMoelleux: null,
+      scaleSoupleTannique: null,
+      scaleLegerPuissant: null,
+    };
+  }
+
+  let scaleLegerPuissant: number | null = null;
+  if (n.includes("puissant")) scaleLegerPuissant = 5;
+  else if (n.includes("leger")) scaleLegerPuissant = 2;
+  else if (n.includes("equilibre") && n.includes("puissant"))
+    scaleLegerPuissant = 3;
+
+  let scaleSoupleTannique: number | null = null;
+  if (n.includes("tannique") || n.includes("tanique")) scaleSoupleTannique = 5;
+  else if (n.includes("souple")) scaleSoupleTannique = 2;
+
+  let scaleSecMoelleux: number | null = null;
+  if (n.includes("moelleux") || n.includes("doux")) scaleSecMoelleux = 4;
+  else if (n.includes("sec")) scaleSecMoelleux = 1;
+
+  let scaleDouxAcide: number | null = null;
+  if (n.includes("acide")) scaleDouxAcide = 5;
+  else if (n.includes("doux") && !n.includes("moelleux")) scaleDouxAcide = 2;
+
+  // « équilibré doux/acide » → milieu
+  if (n.includes("equilibre") && n.includes("doux") && n.includes("acide")) {
+    scaleDouxAcide = 3;
+  }
+
+  return {
+    scaleDouxAcide,
+    scaleSecMoelleux,
+    scaleSoupleTannique,
+    scaleLegerPuissant,
+  };
+}
+
+/**
+ * Normalise « Bordeaux / Médoc », « Languedoc-Roussillon », pays étrangers
+ * vers un nom de région catalogue.
+ */
+export function canonicalizeRegionName(raw: string): string {
+  const cleaned = raw.replace(/\s+/g, " ").trim();
+  if (!cleaned) return cleaned;
+  const first = cleaned.split("/")[0]?.trim() ?? cleaned;
+  const n = stripAccents(first).toLowerCase();
+
+  const aliases: [RegExp, string][] = [
+    [/languedoc/, "Languedoc"],
+    [/roussillon/, "Roussillon"],
+    [/bordeaux/, "Bordeaux"],
+    [/bourgogne|beaune|nuits/, "Bourgogne"],
+    [/beaujolais/, "Beaujolais"],
+    [/rhone/, "Côtes du Rhône"],
+    [/loire|sancerre|chinon|saumur/, "Loire"],
+    [/alsace/, "Alsace"],
+    [/champagne/, "Champagne"],
+    [/provence|bandol|bellet/, "Provence"],
+    [/jura/, "Jura"],
+    [/savoie/, "Savoie"],
+    [/corse/, "Corse"],
+    [/sud[- ]?ouest|gascogne|cahors|madiran|saint-sardos|fronton/, "Sud-Ouest"],
+    [/espagne|spain|ribera|rioja|ribera del duero/, "Autre"],
+    [/italie|italy|toscane|piemont/, "Autre"],
+    [/portugal|douro/, "Autre"],
+    [/usa|californie|napa/, "Autre"],
+    [/hongrie|kekfrankos|tokaj/, "Autre"],
+  ];
+
+  for (const [re, name] of aliases) {
+    if (re.test(n) || re.test(stripAccents(cleaned).toLowerCase())) return name;
+  }
+  return first;
 }
 
 export function mapRawRow(
@@ -373,14 +502,27 @@ export function mapRawRow(
   const errors: string[] = [];
   const warnings: string[] = [];
 
-  const producer = cell(raw, mapping, "producer");
+  const producerRaw = cell(raw, mapping, "producer");
   const cuveeRaw = cell(raw, mapping, "cuvee");
   const nameRaw = cell(raw, mapping, "name");
-  const regionName = cell(raw, mapping, "region");
+  // Beaucoup de fichiers n’ont que « Cuvee » (= nom du vin / château)
+  const producer = producerRaw || cuveeRaw || nameRaw;
+  const cuvee =
+    producerRaw && cuveeRaw && producerRaw !== cuveeRaw ? cuveeRaw : null;
+  if (!producerRaw && cuveeRaw) {
+    warnings.push("Pas de domaine : la colonne cuvée sert de nom / domaine");
+  }
+
+  const regionRaw = cell(raw, mapping, "region");
+  const regionName = regionRaw ? canonicalizeRegionName(regionRaw) : "";
+  if (regionRaw && regionName !== regionRaw.split("/")[0]?.trim()) {
+    warnings.push(`Région « ${regionRaw} » → « ${regionName} »`);
+  }
+
   const locationName =
     cell(raw, mapping, "location") || defaults?.locationName?.trim() || "";
 
-  if (!producer) errors.push("Domaine / château manquant");
+  if (!producer) errors.push("Domaine / château / cuvée manquant");
   if (!regionName) errors.push("Région manquante");
   if (!locationName) errors.push("Emplacement manquant");
 
@@ -391,15 +533,24 @@ export function mapRawRow(
 
   const wineTypeParsed = parseWineType(cell(raw, mapping, "wineType"));
   if (cell(raw, mapping, "wineType") && !wineTypeParsed) {
-    warnings.push(`Type de vin non reconnu (« ${cell(raw, mapping, "wineType")} ») → Rouge`);
+    warnings.push(
+      `Couleur / type non reconnu (« ${cell(raw, mapping, "wineType")} ») → Rouge`,
+    );
   }
   const wineType: WineType = wineTypeParsed ?? "ROUGE";
+
+  const profileRaw = cell(raw, mapping, "profile");
+  const scales = parseProfileScales(profileRaw);
 
   let drinkFrom = parseIntYear(cell(raw, mapping, "drinkFrom"));
   let peakStart = parseIntYear(cell(raw, mapping, "peakStart"));
   let peakEnd = parseIntYear(cell(raw, mapping, "peakEnd"));
   let drinkTo = parseIntYear(cell(raw, mapping, "drinkTo"));
   let drinkWindowAuto = false;
+
+  const conservation = parseConservationYears(
+    cell(raw, mapping, "conservation"),
+  );
 
   const hasAnyWindow =
     drinkFrom != null || peakStart != null || peakEnd != null || drinkTo != null;
@@ -419,13 +570,24 @@ export function mapRawRow(
       peakEnd = peakEnd ?? suggestion.peakEnd;
       drinkTo = drinkTo ?? suggestion.drinkTo;
       drinkWindowAuto = true;
-      if (hasAnyWindow) {
+
+      if (conservation) {
+        drinkFrom = vintage + Math.max(0, conservation.min - 2);
+        peakStart = vintage + conservation.min;
+        peakEnd = vintage + Math.max(conservation.min, conservation.max - 1);
+        drinkTo = vintage + conservation.max;
+        warnings.push(
+          `Garde d’après conservation « ${cell(raw, mapping, "conservation")} »`,
+        );
+      } else if (hasAnyWindow) {
         warnings.push("Fenêtre de garde complétée automatiquement");
       } else {
         warnings.push(`Garde estimée : ${suggestion.label}`);
       }
     } else if (hasAnyWindow) {
-      errors.push("Fenêtre de garde incomplète (fournis les 4 années ou un millésime)");
+      errors.push(
+        "Fenêtre de garde incomplète (fournis les 4 années ou un millésime)",
+      );
     } else {
       errors.push("Millésime ou fenêtre de garde requis");
     }
@@ -476,7 +638,12 @@ export function mapRawRow(
     warnings.push("Note externe ignorée (0–5 attendu)");
   }
 
-  const cuvee = cuveeRaw || null;
+  const noteParts = [
+    cell(raw, mapping, "notes"),
+    profileRaw ? `Profil : ${profileRaw}` : "",
+  ].filter(Boolean);
+  const notes = noteParts.length ? noteParts.join("\n") : null;
+
   const name =
     nameRaw ||
     [producer, cuvee].filter(Boolean).join(" — ") ||
@@ -507,7 +674,11 @@ export function mapRawRow(
     purchaseNotes: cell(raw, mapping, "purchaseNotes") || null,
     rating,
     externalRating,
-    notes: cell(raw, mapping, "notes") || null,
+    notes,
+    scaleDouxAcide: scales.scaleDouxAcide,
+    scaleSecMoelleux: scales.scaleSecMoelleux,
+    scaleSoupleTannique: scales.scaleSoupleTannique,
+    scaleLegerPuissant: scales.scaleLegerPuissant,
     drinkFrom: drinkFrom!,
     peakStart: peakStart!,
     peakEnd: peakEnd!,

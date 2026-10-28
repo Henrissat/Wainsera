@@ -307,6 +307,10 @@ export async function POST(request: Request) {
               rating: data.rating,
               externalRating: data.externalRating,
               notes: data.notes,
+              scaleDouxAcide: data.scaleDouxAcide,
+              scaleSecMoelleux: data.scaleSecMoelleux,
+              scaleSoupleTannique: data.scaleSoupleTannique,
+              scaleLegerPuissant: data.scaleLegerPuissant,
               user: { connect: { id: userId } },
               region: { connect: { id: item.regionId! } },
               ...(item.appellationId

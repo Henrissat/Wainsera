@@ -24,7 +24,7 @@ import {
 export const dynamic = "force-dynamic";
 
 const HOME_HERO_IMAGE =
-  "https://res.cloudinary.com/doe4mucdz/image/upload/f_auto,q_auto,w_1800,c_fill,g_auto/v1793193310/INCONTOURNABLES-Vignoble_rfkodh.jpg";
+  "https://res.cloudinary.com/doe4mucdz/image/upload/c_fill,g_auto,h_250,w_970/b_rgb:000000,e_gradient_fade,y_-0.50/c_scale,co_rgb:ffffff,fl_relative,l_text:montserrat_25_style_light_align_center:Shop%20Now,w_0.5,y_0.18/v1793198852/9035694_rqg2bs.jpg";
 
 export default async function DashboardPage() {
   const userId = await getViewCaveUserId();
