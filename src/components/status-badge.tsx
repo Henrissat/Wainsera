@@ -36,7 +36,7 @@ export function StatusBadge({
   return (
     <span
       className={cn(
-        "inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium whitespace-nowrap",
+        "inline-flex max-w-full items-center truncate rounded-full px-2 py-0.5 text-[11px] font-medium sm:px-2.5 sm:text-xs",
         DRINK_STATUS_STYLES[status],
         animate && "animate-badge-pop",
         className,

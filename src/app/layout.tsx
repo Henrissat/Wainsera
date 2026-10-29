@@ -59,7 +59,7 @@ export default async function RootLayout({
       <head>
         <script dangerouslySetInnerHTML={{ __html: themeInitScript }} />
       </head>
-      <body className="font-sans min-h-full">
+      <body className="min-h-full overflow-x-hidden font-sans">
         <AppShell
           unreadAlerts={unreadAlerts}
           userEmail={session?.user?.email}

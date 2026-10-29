@@ -145,7 +145,7 @@ export default async function DashboardPage() {
   const typeTotal = byType.reduce((s, t) => s + t.qty, 0) || 1;
 
   return (
-    <div className="space-y-8">
+    <div className="w-full min-w-0 space-y-8">
       <section className="home-hero relative -mx-4 -mt-5 overflow-hidden sm:-mx-6 lg:-mx-8 lg:-mt-8">
         <div aria-hidden className="pointer-events-none absolute inset-0">
           {/* eslint-disable-next-line @next/next/no-img-element */}
@@ -227,8 +227,8 @@ export default async function DashboardPage() {
         </div>
       </section>
 
-      <div className="grid gap-6 lg:grid-cols-5">
-        <section className="rounded-2xl border border-border/70 bg-card p-5 shadow-sm lg:col-span-2">
+      <div className="grid min-w-0 gap-6 lg:grid-cols-5">
+        <section className="min-w-0 rounded-2xl border border-border/70 bg-card p-5 shadow-sm lg:col-span-2">
           <h2 className="font-display text-base font-semibold">
             Répartition par type
           </h2>
@@ -271,12 +271,12 @@ export default async function DashboardPage() {
           )}
         </section>
 
-        <section className="rounded-2xl border border-border/70 bg-card p-5 shadow-sm lg:col-span-3">
+        <section className="min-w-0 overflow-hidden rounded-2xl border border-border/70 bg-card p-4 shadow-sm sm:p-5 lg:col-span-3">
           <div className="flex items-center justify-between gap-2">
             <h2 className="font-display text-base font-semibold">À boire</h2>
             <Link
               href="/a-boire"
-              className="text-xs font-medium text-primary hover:underline"
+              className="shrink-0 text-xs font-medium text-primary hover:underline"
             >
               Voir tout
             </Link>
@@ -286,23 +286,28 @@ export default async function DashboardPage() {
               Rien d&apos;urgent pour le moment.
             </p>
           ) : (
-            <div className="mt-4 space-y-2">
+            <div className="mt-3 min-w-0 space-y-1.5">
               {toDrink.map((b, i) => (
-                <BottleRow key={b.id} bottle={b} index={i} />
+                <BottleRow
+                  key={b.id}
+                  bottle={b}
+                  index={i}
+                  variant="compact"
+                />
               ))}
             </div>
           )}
         </section>
       </div>
 
-      <section>
+      <section className="min-w-0">
         <div className="mb-3 flex items-center justify-between gap-2">
           <h2 className="font-display text-base font-semibold">
             Dernières acquisitions
           </h2>
           <Link
             href="/inventaire"
-            className="text-xs font-medium text-primary hover:underline"
+            className="shrink-0 text-xs font-medium text-primary hover:underline"
           >
             Inventaire complet
           </Link>
@@ -320,7 +325,7 @@ export default async function DashboardPage() {
             )}
           </div>
         ) : (
-          <div className="grid gap-2 sm:grid-cols-2">
+          <div className="grid min-w-0 gap-2 sm:grid-cols-2">
             {recent.map((b, i) => (
               <BottleRow key={b.id} bottle={b} index={i} />
             ))}
